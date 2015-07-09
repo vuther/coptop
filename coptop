@@ -533,7 +533,7 @@ function readKey($key) {
 				print($CYAN . "Database:  $RESET" . $thread_data[$input]['db'] . "\n");
 				print($CYAN . "Command:   $RESET" . $thread_data[$input]['command'] . "\n");
 				print($CYAN . "State:     $RESET" . $thread_data[$input]['state'] . "\n");
-				print($CYAN . "Time:      $RESET" . $thread_data[$input]['time'] . "\n\n");
+				print($CYAN . "Time:      $RESET" . $thread_data[$input]['time'] . "s\n\n");
 
 				if ($thread_data[$input]['info']) {
 					$connection->query("USE " . $thread_data[$input]['db']);
