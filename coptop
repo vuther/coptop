@@ -1,9 +1,10 @@
 #!/usr/bin/env php
 <?php
-// Author:   Charles Thompson <01charles.t@gmail.com>
-// Created:  July 06, 2015
-// Purpose:  Monitor MySQL's processlist with some administrative features
-// GitHub:   https://github.com/vuther/coptop
+/*
+	Author:   Charles Thompson <01charles.t@gmail.com>
+	Created:  July 06, 2015
+	GitHub:   https://github.com/vuther/coptop
+*/
 
 //////////////////////////////////
 //       Defaults Settings      //
@@ -743,7 +744,7 @@ function read_stdin($prompt) {
 	global $CYAN, $RESET;
 
 	print("$CYAN$prompt$RESET");
-	system('stty echo'); //  Input text will be blank without this...
+	system('stty echo'); //  Input text will be invisible without this...
 	return stream_get_line(STDIN, 1024, PHP_EOL);
 }
 
