@@ -164,7 +164,7 @@ while (1) {
 	$cols  = exec('tput cols');
 	$lines = exec('tput lines');
 
-	// Find out how many lines we have use
+	// Find out how many lines we can use
 	$lines_left = $lines - 1;
 
 	// ANSI characters for smoother refresh
@@ -423,7 +423,8 @@ while (1) {
 		} else {
 			$final_time = sprintf("%d", $thread['time']) . "ms";
 		}
-		$thread_data[$id]['time'] = $final_time;
+
+		$thread_data[$id]['time'] = $seconds;
 		if ($config['time_filter'] && $seconds <= $config['time_filter']) continue;
 
 		// Determine thread color
@@ -481,6 +482,7 @@ while (1) {
 function readKey($key) {
 	global $connection, $thread_data, $config, $BOLD_CYAN, $CYAN, $RESET, $RED, $UNDERLINE, $BOLD, $delay_microseconds;
 	$run_command = 0;
+	$found       = 0;
 
 	switch ($key) {
 		case '?': // Help
@@ -550,8 +552,7 @@ function readKey($key) {
 				}
 				pause();
 			} else {
-				print($RED . "Invalid Thread ID!$RESET");
-				sleep(1);
+				print_error('Invalid Thread ID!', 1);
 			}
 
 			$run_command = 1;
@@ -586,8 +587,7 @@ function readKey($key) {
 			if (isset($thread_data[$input])) {
 				execute_query("KILL $input", 0);
 			} else {
-				print($RED . "Invalid Thread ID!$RESET");
-				sleep(1);
+				print_error('Invalid Thread ID!', 1);
 			}
 
 			$run_command = 1;
@@ -597,7 +597,6 @@ function readKey($key) {
 
 			if ($input == 'u') { // Kill by username
 				$user  = read_stdin("Username: ");
-				$found = 0;
 
 				foreach ($thread_data as $id => $thread) {
 					if ($thread['user'] == $user) {
@@ -606,12 +605,10 @@ function readKey($key) {
 					}
 				}
 				if (!$found) {
-					print($RED . "No threads were killed with that username!$RESET");
-					sleep(2);
+					print_error('No threads were killed with that username!', 2);
 				}
 			} else if ($input == 'h') { // Kill by host/IP
 				$host  = read_stdin("Host/IP: ");
-				$found = 0;
 
 				foreach ($thread_data as $id => $thread) {
 					if ($thread['host'] == $host) {
@@ -620,18 +617,15 @@ function readKey($key) {
 					}
 				}
 				if (!$found) {
-					print($RED . "No threads were killed with that host/IP!$RESET");
-					sleep(2);
+					print_error('No threads were killed with that host/IP!', 2);
 				}
 			} else if ($input == 't') { // Kill by time range
 				$time  = read_stdin("Time range (ex. 10-20): ");
-				$found = 0;
 				$range = explode('-', $time);
 
-				if (sizeof($range) == 2) {
+				if (preg_match('/^\d+-\d+$/', $time)) {
 					if ($range[0] > $range[1]) {
-						print($RED . "Invalid time range! First number can't be greater than the second$RESET");
-						sleep(2);
+						print_error("Invalid time range! First number can't be greater than the second!", 2);
 					} else {
 						foreach ($thread_data as $id => $thread) {
 							if ($thread['time'] >= $range[0] && $thread['time'] <= $range[1]) {
@@ -640,17 +634,14 @@ function readKey($key) {
 							}
 						}
 						if (!$found) {
-							print($RED . "No threads were killed with that time range!$RESET");
-							sleep(2);
+							print_error('No threads were killed with that time range!', 2);
 						}
 					}
 				} else {
-					print($RED . "Invalid time range!$RESET");
-					sleep(1);
+					print_error('Invalid time range!', 1);
 				}
 			} else {
-				print($RED . "Invalid input!$RESET");
-				sleep(1);
+				print_error('Invalid input!', 1);
 			}
 
 			$run_command = 1;
@@ -696,8 +687,7 @@ function readKey($key) {
 			if (is_numeric($input)) {
 				$config['delay'] = $input;
 			} else {
-				print($RED . "Input must be numeric!$RESET");
-				sleep(1);
+				print_error('Input must be numeric!', 1);
 			}
 
 			$run_command = 1;
@@ -708,8 +698,7 @@ function readKey($key) {
 			if (is_numeric($input)) {
 				$config['time_filter'] = $input;
 			} else {
-				print($RED . "Input must be numeric!$RESET");
-				sleep(1);
+				print_error('Input must be numeric!', 1);
 			}
 
 			$run_command = 1;
@@ -802,6 +791,13 @@ function execute_query($query, $type) {
 	}
 
 	return $results;
+}
+
+function print_error($message, $sleep) {
+	global $RED, $RESET;
+
+	print("$RED$message$RESET");
+	sleep($sleep);
 }
 
 function helpme($command) {

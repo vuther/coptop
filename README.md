@@ -1,6 +1,6 @@
 # coptop
 <h3>Summary</h3>
-coptop is a terminal-based PHP tool for monitoring and administrating a MySQL/MariaDB/Percona 5.0+ server. With this tool, DBAs have full control of queries running on their database servers. Lay down the law!
+coptop is a terminal-based PHP tool for monitoring and administrating a MySQL/MariaDB/Percona 5.0+ server. With this tool, DBAs can take full control of queries running on their database servers. Lay down the law!
 
 I've been using mytop for a few years now and recently wanted to build my own monitoring tool because it didn't have all of the features I wanted. coptop was built with mytop in mind so thanks to Jeremy Zawodny for his work!
 
