@@ -4,6 +4,8 @@ coptop is a terminal-based PHP tool for monitoring and administrating a MySQL/Ma
 
 I've been using mytop for a few years now and recently wanted to build my own monitoring tool because it didn't have all of the features I wanted. coptop was built with mytop in mind so thanks to Jeremy Zawodny for his work!
 
+![ScreenShot](http://i.imgur.com/BT8t43S.png)
+
 <h3>Requirements</h3>
 * This was built using PHP 5.5. I'm unaware of any incompabilities with other versions
 * MySQLi
