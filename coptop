@@ -1,9 +1,9 @@
 #!/usr/bin/env php
 <?php
-// Project:  coptop
 // Author:   Charles Thompson <01charles.t@gmail.com>
 // Created:  July 06, 2015
 // Purpose:  Monitor MySQL's processlist with some administrative features
+// GitHub:   https://github.com/vuther/coptop
 
 //////////////////////////////////
 //       Defaults Settings      //
@@ -838,7 +838,7 @@ function helpme($command) {
 		printf("$BOLD%-9s$RESET %s", "     H", "Hide/show stats header\n");
 		printf("$BOLD%-9s$RESET %s", "     i", "Hide/show idle threads\n");
 		printf("$BOLD%-9s$RESET %s", "     k", "Kill thread by ID\n");
-		printf("$BOLD%-9s$RESET %s", "     K", "Kill thread by username, host, or time range\n");
+		printf("$BOLD%-9s$RESET %s", "     K", "Kill threads by username, host, or time range\n");
 		printf("$BOLD%-9s$RESET %s", "     o", "Reverse sort order\n");
 		printf("$BOLD%-9s$RESET %s", "     p", "Pause screen\n");
 		printf("$BOLD%-9s$RESET %s", "     q", "Quit\n");
