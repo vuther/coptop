@@ -78,13 +78,13 @@ if (isset($_SERVER['HOME']) && file_exists($_SERVER['HOME'] . "/.my.cnf")) {
 
 // Check to make sure these variables have values
 if (!isset($opts['u']) && !isset($mycnf['client']['user'])) {
-	exit($RED . "You did not enter a username! Use --help parameter if you need assistance.\n");
+	exit($RED . "You did not enter a username! Use --help parameter if you need assistance.$RESET\n");
 }
 if (!isset($opts['p']) && !isset($opts['prompt']) && !isset($mycnf['client']['password'])) {
-	exit($RED . "You did not enter a password! Use --help parameter if you need assistance.\n");
+	exit($RED . "You did not enter a password! Use --help parameter if you need assistance.$RESET\n");
 }
 if (!isset($opts['h'])) {
-	exit($RED . "You did not enter a host! Use --help parameter if you need assistance.\n");
+	exit($RED . "You did not enter a host! Use --help parameter if you need assistance.$RESET\n");
 }
 
 // Set config variables if they're used in command line
@@ -118,7 +118,7 @@ $delay_microseconds = 100 * 1000;
 $connection = new mysqli($config['server'], $config['user'], $config['password'], '', $config['port']);
  
 if ($connection->connect_error) {
-	trigger_error($RED . "Database connection failed: " . $connection->connect_error, E_USER_ERROR);
+	exit($RED . "Database connection failed: " . $connection->connect_error . "$RESET\n");
 }
 
 //////////////////////////////////
@@ -768,14 +768,14 @@ function pause() {
 }
 
 function execute_query($query, $type) {
-	global $connection, $RED, $ansi_chars;
+	global $connection, $RED, $RESET, $ansi_chars;
 
 	$results = array();
 	$data    = $connection->query($query);
 	
 	if ($data === false) {
 		print($ansi_chars['SHOW_CURSOR']);
-		trigger_error($RED . 'SQL: ' . $query . ' - Error: ' . $connection->error, E_USER_ERROR);
+		exit($RED . 'SQL: ' . $query . ' - Error: ' . $connection->error . "$RESET\n");
 	} else {
 		if ($type) $data->data_seek(0);
 		if ($type == 1) {
