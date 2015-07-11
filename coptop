@@ -233,6 +233,9 @@ while (1) {
 	if ($config['delay'] == 1) {
 		$tmp_tables_memory = "$RESET($CYAN$tmp_tables_per_sec/s$RESET)";
 		$tmp_tables_disk   = "$RESET($CYAN$tmp_disk_tables_per_sec/s$RESET)";
+	} else {
+		$tmp_tables_memory = '';
+		$tmp_tables_disk   = '';
 	}
 
 	//////////////////////////////////
@@ -394,16 +397,8 @@ while (1) {
 		if (!$lines_left) break;
 		if ($thread['command'] == 'Binlog Dump' && !$config['show_idle']) continue;
 		if ($thread['command'] == 'Sleep' && !$config['show_idle']) continue; 
-		if ($thread['command'] == 'Connect' && $thread['state'] == 'Writing to net') continue;
-		if ($thread['command'] == 'Connect' && $thread['state'] == 'Reading from net') continue;
-		if ($thread['command'] == 'Connect' && $thread['state'] == 'login') continue;
-		if ($thread['command'] == 'Init DB' && $thread['state'] == 'Writing to net') continue;
-		if ($thread['command'] == 'Init DB' && $thread['state'] == 'init') continue;
-		if ($thread['command'] == 'Statistics' && $thread['state'] == 'init') continue;
-		if ($thread['command'] == 'Query' && $thread['state'] == 'init') continue;
-		if ($thread['command'] == 'Query' && $thread['state'] == 'Writing to net') continue;
-		if ($thread['command'] == 'Killed' && $thread['state'] == 'cleaning up') continue;
-		if ($thread['command'] == 'Ping') continue;
+		if ($thread['command'] != 'Query' && !$config['show_idle']) continue; 
+		if ($thread['command'] == 'Query' && !$thread['info']) continue; 
 		if ($thread['info'] == $pl_sql) continue;
 		if ($thread['info'] == 'SHOW GLOBAL STATUS') continue;
 		if ($config['user_filter'] && $thread['user'] != $config['user_filter']) continue;
