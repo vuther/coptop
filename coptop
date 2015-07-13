@@ -27,6 +27,21 @@ $config  = array(
 	'time_filter'  => 0,
 );
 
+// MySQL commands used
+$commands = array(
+	'pl_query'     => 'SHOW FULL PROCESSLIST',
+	'pl_table'     => 'SELECT Id, User, Host, db, Command, Host, Time_MS As Time, Info, State FROM information_schema.PROCESSLIST',
+	'status'       => 'SHOW GLOBAL STATUS',
+	'variables'    => 'SHOW GLOBAL VARIABLES',
+	'master'       => 'SHOW MASTER STATUS',
+	'slave'        => 'SHOW SLAVE STATUS',
+	'databases'    => 'SHOW DATABASES'
+);
+
+// Loop timings
+$key_press_delay    = 10;
+$delay_microseconds = 100 * 1000;
+
 //////////////////////////////////
 //        ANSI Characters       //
 //////////////////////////////////
@@ -109,10 +124,6 @@ if (isset($opts['prompt'])) {
 	echo "\n";
 }
 
-// Loop timings
-$key_press_delay    = 10;
-$delay_microseconds = 100 * 1000;
-
 //////////////////////////////////
 //     Connect to database      //
 //////////////////////////////////
@@ -125,8 +136,9 @@ if ($connection->connect_error) {
 //////////////////////////////////
 //    MySQL Server variables    //
 //////////////////////////////////
-$variables             = execute_query('SHOW GLOBAL VARIABLES', 1);
+$variables             = execute_query($commands['variables'], 1);
 $short_version         = substr($variables['version'], 0, 3);
+$version_comment       = strtolower($variables['version_comment']);
 $use_processlist_query = 0;
 
 // Determine if processlist query should be used based on mysql version
@@ -135,13 +147,13 @@ if ($short_version == '5.0' || $short_version == '5.1') {
 }
 
 // Get proper server version fork
-if (strpos(strtolower($variables['version_comment']), 'mariadb cluster') !== false) {
+if (strpos($version_comment, 'mariadb cluster') !== false) {
 	$db_fork = 'MariaDB Cluster';
-} else if (strpos(strtolower($variables['version_comment']), 'mariadb') !== false) {
+} else if (strpos($version_comment, 'mariadb') !== false) {
 	$db_fork = 'MariaDB';
-} else if (strpos(strtolower($variables['version_comment']), 'percona xtradb cluster') !== false) {
+} else if (strpos($version_comment, 'percona xtradb cluster') !== false) {
 	$db_fork = 'Percona XtraDB Cluster';
-} else if (strpos(strtolower($variables['version_comment']), 'percona server') !== false) {
+} else if (strpos($version_comment, 'percona server') !== false) {
 	$db_fork = 'Percona Server';
 } else {
 	$db_fork = 'MySQL';
@@ -181,9 +193,9 @@ while (1) {
 	$old_status = $status;
 
 	// Get our statuses in arrays
-	$status        = execute_query('SHOW GLOBAL STATUS', 1);
-	$master_status = execute_query('SHOW MASTER STATUS', 2);
-	$slave_status  = execute_query('SHOW SLAVE STATUS', 2);
+	$status        = execute_query($commands['status'], 1);
+	$master_status = execute_query($commands['master'], 2);
+	$slave_status  = execute_query($commands['slave'], 2);
 
 	//////////////////////////////////
 	//    Calculations for Header   //
@@ -318,13 +330,14 @@ while (1) {
 	//  Processlist Thread Section  //
 	//////////////////////////////////
 	if ($use_processlist_query) {
-		$pl_sql = "SHOW FULL PROCESSLIST";
+		$pl_sql = $commands['pl_query'];
 	} else {
-		$pl_sql = "SELECT Id, User, Host, db, Command, Host, Time_MS As Time, Info, State FROM information_schema.PROCESSLIST";
+		$pl_sql = $commands['pl_table'];
 	}
 	$data = execute_query($pl_sql, 3);
  
  	$servers_slaved = array(); // Reset it
+
 	// Put threads from processlist into array
 	foreach ($data as $row) {
 		// Host/IP format
@@ -385,7 +398,7 @@ while (1) {
 	//////////////////////////////////
 
 	// Processlist header
-	$free_screen = $cols - 67; // 68 is the length of our headers
+	$free_screen = $cols - 67; // 67 is the length of our headers
 	$repeat_char = str_repeat("-", $free_screen - 1);
 	print($BOLD . "Identifier   Username   Hostname/IP   Database      Time   Command  Query/State\n" . $RESET);
 	print($CYAN . "----------  ---------  ------------  ---------  --------  --------  $repeat_char\n" . $RESET);
@@ -395,12 +408,11 @@ while (1) {
 	foreach($thread_data as $id => $thread) {
 		// Skip thread if these conditions are met
 		if (!$lines_left) break;
+		if (in_array($thread['info'], $commands)) continue;
 		if ($thread['command'] == 'Binlog Dump' && !$config['show_idle']) continue;
 		if ($thread['command'] == 'Sleep' && !$config['show_idle']) continue; 
 		if ($thread['command'] != 'Query' && !$config['show_idle']) continue; 
 		if ($thread['command'] == 'Query' && !$thread['info']) continue; 
-		if ($thread['info'] == $pl_sql) continue;
-		if ($thread['info'] == 'SHOW GLOBAL STATUS') continue;
 		if ($config['user_filter'] && $thread['user'] != $config['user_filter']) continue;
 		if ($config['db_filter']   && $thread['db']   != $config['db_filter']) continue;
 		if ($config['host_filter'] && $thread['host'] != $config['host_filter']) continue;
@@ -481,7 +493,7 @@ while (1) {
 //          Functions           //
 //////////////////////////////////
 function read_key($key) {
-	global $connection, $thread_data, $config, $BOLD_CYAN, $CYAN, $RESET, $RED, $UNDERLINE, $BOLD, $delay_microseconds;
+	global $connection, $thread_data, $config, $BOLD_CYAN, $CYAN, $RESET, $RED, $UNDERLINE, $BOLD, $delay_microseconds, $commands;
 	$run_command = 0;
 	$found       = 0;
 
@@ -512,7 +524,7 @@ function read_key($key) {
 			system('clear');
 
 			print("$CYAN$UNDERLINE" . "Available Databases$RESET\n");
-			$results = execute_query("SHOW DATABASES", 3);
+			$results = execute_query($commands['databases'], 3);
 
 			foreach ($results as $key => $database) {
 				print($database['Database'] . "\n");
@@ -713,7 +725,7 @@ function read_key($key) {
 		case 'v': // Display some important variables
 			system('clear');
 
-			$variables    = execute_query('SHOW GLOBAL VARIABLES', 1);
+			$variables    = execute_query($commands['variables'], 1);
 			$special_list = array('binlog_format', 'character_set_server', 'collation_server', 'innodb_checksum_algorithm', 
 							  'innodb_flush_method', 'innodb_file_format','innodb_file_format_max', 'innodb_file_per_table', 
 							  'innodb_flush_log_at_trx_commit', 'innodb_open_files','interactive_timeout', 'log_bin', 
@@ -776,7 +788,7 @@ function execute_query($query, $type) {
 	
 	if ($data === false) {
 		print($ansi_chars['SHOW_CURSOR']);
-		exit($RED . 'SQL: ' . $query . ' - Error: ' . $connection->error . "$RESET\n");
+		exit("$RED" . "SQL: $RESET$query -$RED Error: $RESET" . $connection->error . "\n");
 	} else {
 		if ($type) $data->data_seek(0);
 		if ($type == 1) {
