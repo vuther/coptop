@@ -32,19 +32,21 @@ I've been using mytop for a few years now and recently wanted to build my own mo
 <h3>Command line parameters</h3>
 ```
 Login
-  	-u        $user  (will check my.cnf client section for username field)
-  	-p        $pass  (will check my.cnf client section for password field)
-  	-h        $host
-  	-P        $port  (port of server      - default: 3306)
+    -u        $user  (Will check my.cnf client section for username field)
+    -p        $pass  (Will check my.cnf client section for password field)
+    -h        $host
+    -P        $port  (default: 3306) - port of server
 
 Options
-  	--ansi    0/1    (ansi refresh        - default: off) -- this is to eliminate flickering when the screen refreshes; currently bugged. If you know how to fix, please let me know :-)
-  	--delay   $delay (delay in seconds    - default: 1)
-  	--header  0/1    (show header         - default: on)
-  	--idle    0/1    (show idle threads   - default: off)
-  	--resolve 0/1    (resolve ips to host - default: on) -- also resolves host to ip
-  	--sort    0/1    (reverse sort        - default: on)
-  	--prompt         (prompts for password; text is invisible)
+    --delay   $time  (default: 1)    - Refresh delay in seconds
+    --notify  $email (default: off)  - Send email when slow query hits --limit value
+    --limit   $time  (default: 30)   - Notify limit in seconds
+    --ansi    0/1    (default: off)  - Ansi escape character method for smoother refresh that reduces flickering
+    --header  0/1    (default: on)   - Show header
+    --idle    0/1    (default: off)  - Show idle threads
+    --resolve 0/1    (default: on)   - Resolve IPs to hostnames
+    --sort    0/1    (default: on)   - Reverse sort
+    --prompt         (prompts for password; text is invisible)
 ```
 <h3>Commands</h3>
 ```
@@ -59,6 +61,7 @@ Command Description
    i    Hide/show idle threads
    k    Kill thread by ID
    K    Kill threads by username, host, or time range
+   l    Set notify limit for slow queries
    o    Reverse sort order
    p    Pause screen
    q    Quit
@@ -72,5 +75,9 @@ Command Description
 <h3>Want to contribute?</h3>
 If you'd like to contribute, feel free to submit a merge request or get in contact with me. I'm open to all suggestions!
 
-I'm currently tackling one problem where whenever ansi refresh is enabled, blank space in the header section can have "ghost" characters saved whenever you resize the terminal and what not. I have no clue why it does that. mytop does not do that so I think it's something PHP specific. If you know how to fix that, please let me know! :-)
+Current issues I'm tackling:
+  1) Whenever ansi refresh is enabled, blank space in the header section can have "ghost" characters saved whenever you resize the terminal and what not. I have no clue why it does that. mytop doesn't behave like that so I believe it's something PHP specific. 
+  2) Want to get rid of the readline dependency. It has to be installed w/ PHP from what I read so that's an issue for non-power users.
+
+If you know how to fix any of these issues, please let me know! :-)
 

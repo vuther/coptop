@@ -9,22 +9,24 @@
 //////////////////////////////////
 //       Defaults Settings      //
 //////////////////////////////////
-$version = "v1.0";
+$version = "v1.1";
 $config  = array(
-	'user'         => '',
-	'password'     => '',
-	'server'       => '',
-	'port'         => 3306,
-	'header'       => 1,
-	'delay'        => 1,
-	'show_idle'    => 0,
-	'reverse_sort' => 1,
-	'resolve_ip'   => 1,
-	'ansi_refresh' => 0,
-	'user_filter'  => '',
-	'db_filter'    => '',
-	'host_filter'  => '',
-	'time_filter'  => 0,
+	'user'           => '',
+	'password'       => '',
+	'server'         => '',
+	'port'           => 3306,
+	'header'         => 1,
+	'delay'          => 1,
+	'show_idle'      => 0,
+	'reverse_sort'   => 1,
+	'resolve_ip'     => 1,
+	'ansi_refresh'   => 0,
+	'user_filter'    => '',
+	'db_filter'      => '',
+	'host_filter'    => '',
+	'time_filter'    => 0,
+	'notify_email'   => '',
+	'notify_limit'   => 30
 );
 
 // MySQL commands used
@@ -57,8 +59,8 @@ $BOLD       = $CSI . "1m";
 $UNDERLINE  = $CSI . "4m";
 $ansi_chars = array(
 	'CURSOR_TO_START' => $CSI . "H",    # Start the cursor 
-	'EEL'             => $CSI . "K",    # Erase end of line
-	'EEB'             => $CSI . "J",    # Erase down
+	'EEL'             => $CSI . "K",    # Clear line from cursor right
+	'EEB'             => $CSI . "J",    # Clear screen from cursor down
 	'HIDE_CURSOR'     => $CSI . "?25l", # Hide cursor
 	'SHOW_CURSOR'     => $CSI . "?25h"  # Show cursor
 );   
@@ -73,11 +75,16 @@ if (!function_exists('readline_callback_handler_install')) {
 	exit($RED . "Your PHP version was not compiled with readline! It has to be compiled " . 
 				"with readline for coptop to work.$RESET\n");
 }
+if(!ini_get('date.timezone')) {
+	date_default_timezone_set('America/New_York');
+}
 
 //////////////////////////////////
 //   Command line parameters    //
 //////////////////////////////////
-$opts = getopt('u:p:h:P:', array('delay:', 'idle:', 'sort:', 'resolve:', 'ansi:', 'header:', 'help', 'prompt'));
+$opts = getopt('u:p:h:P:', array('delay:', 'idle:', 'sort:', 'resolve:', 'ansi:', 'header:', 'notify:', 
+	                             'limit:', 'help', 'prompt'));
+
 if (isset($opts['help'])) helpme('--help');
 
 // Use my.cnf client's information if available
@@ -114,6 +121,8 @@ if (isset($opts['idle']))    $config['show_idle']    = $opts['idle'];
 if (isset($opts['sort']))    $config['reverse_sort'] = $opts['sort'];
 if (isset($opts['resolve'])) $config['resolve_ip']   = $opts['resolve'];
 if (isset($opts['ansi']))    $config['ansi_refresh'] = $opts['ansi'];
+if (isset($opts['notify']))  $config['notify_email'] = $opts['notify'];
+if (isset($opts['limit']))   $config['notify_limit'] = $opts['limit'];
 
 // Get password to server privately
 if (isset($opts['prompt'])) {
@@ -164,30 +173,21 @@ if (strpos($version_comment, 'mariadb cluster') !== false) {
 $db_version = explode('-', $variables['version']);
 $db_version = $db_version[0];
 
-// Clear screen and create some variables
+// Clear screen and create some arrays
 system('clear');
 $status         = array();
 $servers_slaved = array();
+$slow_queries   = array();
 //////////////////////////////////
 //          Main Loop           //
 //////////////////////////////////
 while (1) {
-	$thread_data = array();
-
 	// Height & Width of terminal
 	$cols  = exec('tput cols');
 	$lines = exec('tput lines');
 
 	// Find out how many lines we can use
 	$lines_left = $lines - 1;
-
-	// ANSI characters for smoother refresh
-	if ($config['ansi_refresh']) {
-		print($ansi_chars['EEL']);
-	} else {
-		system('clear'); // Clear screen
-	}
-	print($ansi_chars['HIDE_CURSOR']);
 
 	// Save old status data
 	$old_status = $status;
@@ -249,6 +249,14 @@ while (1) {
 		$tmp_tables_memory = '';
 		$tmp_tables_disk   = '';
 	}
+
+	// ANSI characters for smoother refresh
+	if ($config['ansi_refresh']) {
+		print($ansi_chars['EEL']);
+	} else {
+		system('clear'); // Clear screen
+	}
+	print($ansi_chars['HIDE_CURSOR']);
 
 	//////////////////////////////////
 	//     Print Header Section     //
@@ -326,60 +334,93 @@ while (1) {
 		if ($config['ansi_refresh']) print($ansi_chars['CURSOR_TO_START']);
 	}
 
+	$servers_slaved = array(); // Reset it
+
 	//////////////////////////////////
 	//  Processlist Thread Section  //
 	//////////////////////////////////
+	$thread_data = array();
+	
 	if ($use_processlist_query) {
 		$pl_sql = $commands['pl_query'];
 	} else {
 		$pl_sql = $commands['pl_table'];
 	}
+
 	$data = execute_query($pl_sql, 3);
- 
- 	$servers_slaved = array(); // Reset it
 
 	// Put threads from processlist into array
-	foreach ($data as $row) {
-		// Host/IP format
-		$row['Host']     = explode(":", $row['Host']); // Remove port from hostname/IP
-		$row['Host']     = $row['Host'][0];
-		$thread_using_ip = 0;
+	foreach ($data as $thread) {
+		$id = $thread['Id'];
 
-		if (filter_var($row['Host'], FILTER_VALIDATE_IP)) {
+		// Hostname/IP format
+		$thread['Host']   = explode(":", $thread['Host']); // Remove port from hostname/IP
+		$thread['Host']   = $thread['Host'][0];
+		$thread_using_ip  = 0;
+
+		if (filter_var($thread['Host'], FILTER_VALIDATE_IP)) {
 			$thread_using_ip = 1;
 		}
 		if ($config['resolve_ip']) {
 			if ($thread_using_ip) {
-				$row['Host'] = gethostbyaddr($row['Host']);
+				$thread['Host'] = gethostbyaddr($thread['Host']);
 			}
-			if (!filter_var($row['Host'], FILTER_VALIDATE_IP)) {
-				$row['Host'] = explode(".", $row['Host']);
-				$row['Host'] = $row['Host'][0];
+			if (!filter_var($thread['Host'], FILTER_VALIDATE_IP)) {
+				$thread['Host'] = explode(".", $thread['Host']);
+				$thread['Host'] = $thread['Host'][0];
 			}
 		} else {
 			if (!$thread_using_ip) {
-				$row['Host'] = gethostbyname($row['Host']);
+				$thread['Host'] = gethostbyname($thread['Host']);
 			}
 		}
 
 		// Save slave servers to array
-		if ($row['Command'] == 'Binlog Dump') $servers_slaved[] = $row['Host'];
+		if ($thread['Command'] == 'Binlog Dump') $servers_slaved[] = $thread['Host'];
 
 		// Remove newline chars
-		$row['Info'] = trim(preg_replace('/\s+/', ' ', $row['Info']));
+		$thread['Info'] = trim(preg_replace('/\s+/', ' ', $thread['Info']));
+
+		// Format final time
+		$seconds = intval($thread['Time'] / 1000);
+
+		if ($use_processlist_query) {
+			$formatted_time = $thread['Time'] . "s";
+		} else if ($seconds >= 1) {
+			$formatted_time = sprintf("%s", $seconds) . "s";
+		} else {
+			$formatted_time = sprintf("%d", $thread['Time']) . "ms";
+		}
 
 		// Save thread data to array
-		$thread_data[$row['Id']] = array(
-			"user"    => $row['User'],    "host" => $row['Host'], "db"   => $row['db'], 
-			"command" => $row['Command'], "time" => $row['Time'], "info" => $row['Info'],
-			"state"   => $row['State']
+		$thread_data[$id] = array(
+			"user"    => $thread['User'],    "host"           => $thread['Host'], "db"      => $thread['db'], 
+			"command" => $thread['Command'], "time"           => $thread['Time'], "info"    => $thread['Info'],
+			"state"   => $thread['State'],   "formatted_time" => $formatted_time, "seconds" => $seconds
 		);
+
+		// Save and notify of slow queries
+		if ($thread['Command'] == 'Query' && $config['notify_email'] && $seconds >= $config['notify_limit'] 
+			&& $thread['User'] != 'backup' 
+			&& $seconds < 99999999) {
+			if (!in_array($id, $slow_queries)) {
+				$slow_queries[] = $id;
+				email_query($id, $thread_data[$id]);
+			}
+		}
+	}
+
+	// Remove slow queries from array that are no longer running
+	foreach ($slow_queries as $key => $thread_id) {
+		if (!array_key_exists($thread_id, $thread_data) || $thread_data[$thread_id]['command'] != 'Query') {
+			unset($slow_queries[$key]);
+		}
 	}
 
 	// This is to show sleeping threads if there's not a lot threads when you first begin to monitor the server
-	if (!isset($first_time) && sizeof($thread_data) <= 20) {
+	if (!isset($first_time) && sizeof($thread_data) <= $lines_left) {
 		$config['show_idle'] = 1;
-		$first_time = 1;
+		$first_time          = 1;
 	}
 
 	// Sort by time
@@ -416,6 +457,8 @@ while (1) {
 		if ($config['user_filter'] && $thread['user'] != $config['user_filter']) continue;
 		if ($config['db_filter']   && $thread['db']   != $config['db_filter']) continue;
 		if ($config['host_filter'] && $thread['host'] != $config['host_filter']) continue;
+		if ($config['time_filter'] && $thread['seconds'] <= $config['time_filter']) continue;
+		if ($thread['seconds'] >= 99999999) continue;
 
 		// Use state if there is one
 		if ($thread['state'] && !$thread['info']) {
@@ -424,42 +467,27 @@ while (1) {
 			$info = $thread['info'];
 		}
 
-		# Get the format of thread time
-		$seconds = intval($thread['time'] / 1000);
-		if ($seconds >= 99999999) continue;
-
-		if ($use_processlist_query) {
-			$seconds    = $thread['time'];
-			$final_time = $seconds . "s";
-		} else if ($seconds >= 1) {
-			$final_time = sprintf("%s", $seconds) . "s";
-		} else {
-			$final_time = sprintf("%d", $thread['time']) . "ms";
-		}
-
-		$thread_data[$id]['time'] = $seconds;
-		if ($config['time_filter'] && $seconds <= $config['time_filter']) continue;
-
 		// Determine thread color
 		if ($thread['command']  == 'Sleep' || 
 			$thread['command']  == 'Connect' || 
 			$thread['command']  == "Binlog Dump") { $color = $RESET; } 
 		else if ($thread['user'] == 'backup') { $color = $MAGENTA; } 
-		else if ($seconds <= 0) { $color = $GREEN; } 
-		else if ($seconds >= 3) { $color = $RED; } 
-		else if ($seconds >= 1) { $color = $YELLOW; }
+		else if ($thread['seconds'] <= 0) { $color = $GREEN; } 
+		else if ($thread['seconds'] >= 3) { $color = $RED; } 
+		else if ($thread['seconds'] >= 1) { $color = $YELLOW; }
 
 		// Print thread
 		print($color);
 		printf("%10d %10.9s %13.12s %10.9s %9s %9.8s %-$free_screen.$free_screen" . "s",
 			   $id, $thread['user'], $thread['host'], $thread['db'],
-			   $final_time, $thread['command'], " $info");
+			   $thread['formatted_time'], $thread['command'], " $info");
 		print("$RESET\n");
 
 		$lines_left--;
 		if (!$lines_left) break;
 	}
 
+	// Print some ansi characters
 	if ($config['ansi_refresh']) print($ansi_chars['EEL'] . $ansi_chars['EEB']);
 	print($ansi_chars['SHOW_CURSOR']);
 
@@ -545,7 +573,7 @@ function read_key($key) {
 				print($CYAN . "Database:  $RESET" . $thread_data[$input]['db'] . "\n");
 				print($CYAN . "Command:   $RESET" . $thread_data[$input]['command'] . "\n");
 				print($CYAN . "State:     $RESET" . $thread_data[$input]['state'] . "\n");
-				print($CYAN . "Time:      $RESET" . $thread_data[$input]['time'] . "s\n\n");
+				print($CYAN . "Time:      $RESET" . $thread_data[$input]['formatted_time'] . "\n\n");
 
 				if ($thread_data[$input]['info']) {
 					$connection->query("USE " . $thread_data[$input]['db']);
@@ -570,8 +598,8 @@ function read_key($key) {
 
 			$run_command = 1;
 			break;
-		case 'h': // Filter by host/IP
-			$input = read_stdin("Host/IP to filter by: ");
+		case 'h': // Filter by hostname/IP
+			$input = read_stdin("Hostname/IP to filter by: ");
 			$config['host_filter'] = $input;
 
 			$run_command = 1;
@@ -605,8 +633,8 @@ function read_key($key) {
 
 			$run_command = 1;
 			break;
-		case 'K': // Kill by username, host, or time range
-			$input = read_stdin("Kill by username/host/time range (u/h/t): ");
+		case 'K': // Kill by username, hostname, or time range
+			$input = read_stdin("Kill by username/hostname/time range (u/h/t): ");
 
 			if ($input == 'u') { // Kill by username
 				$user  = read_stdin("Username: ");
@@ -620,8 +648,8 @@ function read_key($key) {
 				if (!$found) {
 					print_error('No threads were killed with that username!', 2);
 				}
-			} else if ($input == 'h') { // Kill by host/IP
-				$host  = read_stdin("Host/IP: ");
+			} else if ($input == 'h') { // Kill by hostname/IP
+				$host  = read_stdin("Hostname/IP: ");
 
 				foreach ($thread_data as $id => $thread) {
 					if ($thread['host'] == $host) {
@@ -630,7 +658,7 @@ function read_key($key) {
 					}
 				}
 				if (!$found) {
-					print_error('No threads were killed with that host/IP!', 2);
+					print_error('No threads were killed with that hostname/IP!', 2);
 				}
 			} else if ($input == 't') { // Kill by time range
 				$time  = read_stdin("Time range (ex. 10-20): ");
@@ -641,7 +669,7 @@ function read_key($key) {
 						print_error("Invalid time range! First number can't be greater than the second!", 2);
 					} else {
 						foreach ($thread_data as $id => $thread) {
-							if ($thread['time'] >= $range[0] && $thread['time'] <= $range[1]) {
+							if ($thread['seconds'] >= $range[0] && $thread['seconds'] <= $range[1]) {
 								execute_query("KILL $id", 0);
 								$found = 1;
 							}
@@ -659,6 +687,18 @@ function read_key($key) {
 
 			$run_command = 1;
 			break;
+		case 'l': // Set notify limit for slow queries
+			$input = read_stdin("Notify limit in seconds for slow queries: ");
+
+			if (is_numeric($input)) {
+				$config['notify_limit'] = $input;
+			} else {
+				print_error('Input must be numeric!', 1);
+			}
+
+			$run_command = 1;
+			break;
+
 		case 'o': // Sort by lowest/highest time for query
 			if ($config['reverse_sort']) {
 				$config['reverse_sort'] = 0;
@@ -813,6 +853,104 @@ function print_error($message, $sleep) {
 	sleep($sleep);
 }
 
+function email_query($id, $thread) {
+	global $config;
+
+	$email_body = "<head><style>
+	span {
+		font-family: serif;
+		font-size: 16px;
+	}
+	hr {
+	  margin-top: 1px;
+	  border: none;
+      height: 1px;
+      color: #D2D2D2; /* old IE */
+      background-color: #D2D2D2; /* Modern Browsers */
+	}
+	table {
+	  border-spacing: 0;
+	  border-collapse: collapse;
+	}
+	td,
+	th {
+	  padding: 0;
+	}
+	table {
+	  background-color: transparent;
+	}
+	th {
+	  text-align: left;
+	  background-color: #f2f2f2;
+	}
+	.table {
+	  width: 45%;
+	  max-width: 45%;
+	  margin-bottom: 10px;
+	}
+	.table-curved {
+	    border-collapse: separate;
+	}
+	.table-curved {
+	    border: solid #ccc 1px;
+	    border-radius: 6px;
+	    border-left:0px;
+	}
+	.table-curved td, .table-curved th {
+	    border-left: 1px solid #ccc;
+	    border-top: 1px solid #ccc;
+	}
+	.table-curved th {
+	    border-top: none;
+	}
+	.table-curved th:first-child {
+	    border-radius: 6px 0 0 0;
+	}
+	.table-curved th:last-child {
+	    border-radius: 0 6px 0 0;
+	}
+	.table-curved th:only-child{
+	    border-radius: 6px 6px 0 0;
+	}
+	.table-curved tr:last-child td:first-child {
+	    border-radius: 0 0 0 3px;
+	}
+	.table-curved tr:last-child td:last-child {
+	    border-radius: 0 0 3px 0;
+	}
+	.table > thead > tr > th,
+	.table > tbody > tr > th,
+	.table > tfoot > tr > th,
+	.table > thead > tr > td,
+	.table > tbody > tr > td,
+	.table > tfoot > tr > td {
+	  padding: 5px;
+	  line-height: 1.42857143;
+	  vertical-align: top;
+	}
+	</style></head><body>
+	<table class=\"table table-curved\">
+	<tr><th>Thread Information</th><th>Value</th></tr>";
+
+	$subject     = "coptop: " . $config['server'] . " slow query";
+	$headers     = 'From: coptop <coptop@dangerzone.com>' . "\r\n";
+	$headers    .= 'MIME-Version: 1.0' . "\r\n";
+	$headers    .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
+
+	$email_body .= "<tr><td>ID</td><td>" . $id . "</td></tr>" . 
+				   "<tr><td>User</td><td>" . $thread['user'] . '@' . $thread['host'] . "</td></tr>" . 
+				   "<tr><td>Database</td><td>" . $thread['db'] . "</td></tr>" . 
+				   "<tr><td>Command</td><td>" . $thread['command'] . "</td></tr>" . 
+				   "<tr><td>State</td><td>" . $thread['state'] . "</td></tr>" . 
+				   "<tr><td>Time</td><td>" . $thread['formatted_time'] . "</td></tr>" . 
+				   "</table>" .
+				   "<span style=\"font-size: 18px; font-weight: bold;\">Query</span>" . 
+				   "<hr>" .
+				   "<span>" . $thread['info'] . "</span>";
+
+	mail($config['notify_email'], $subject, $email_body, $headers);
+}
+
 function helpme($command) {
 	global $BOLD, $CYAN, $BOLD_CYAN, $RESET, $UNDERLINE, $YELLOW, $version, $MAGENTA;
 
@@ -820,18 +958,20 @@ function helpme($command) {
 	if ($command == '--help') {
 		print($BOLD . "Below are the available parameters for$BOLD_CYAN coptop $version: $RESET\n");
 		print("\t$UNDERLINE" . "Login$RESET\n");
-		print($CYAN . "\t-u        \$user  $RESET(will check my.cnf client section for username field)\n");
-		print($CYAN . "\t-p        \$pass  $RESET(will check my.cnf client section for password field)\n");
+		print($CYAN . "\t-u        \$user  $RESET(Will check my.cnf client section for username field)\n");
+		print($CYAN . "\t-p        \$pass  $RESET(Will check my.cnf client section for password field)\n");
 		print($CYAN . "\t-h        \$host$RESET\n");
-		print($CYAN . "\t-P        \$port$RESET  (port of server      - default: 3306)\n");
+		print($CYAN . "\t-P        \$port$RESET  (default: 3306) - port of server\n");
 
 		print("\n\t$UNDERLINE" . "Options$RESET\n");
-		print($CYAN . "\t--ansi    0/1    $RESET(ansi refresh        - default: off)\n");
-		print($CYAN . "\t--delay   \$delay $RESET(delay in seconds    - default: 1)\n");
-		print($CYAN . "\t--header  0/1    $RESET(show header         - default: on)\n");
-		print($CYAN . "\t--idle    0/1    $RESET(show idle threads   - default: off)\n");
-		print($CYAN . "\t--resolve 0/1    $RESET(resolve ips to host - default: on)\n");
-		print($CYAN . "\t--sort    0/1    $RESET(reverse sort        - default: on)\n");
+		print($CYAN . "\t--delay   \$time  $RESET(default: 1)    - Refresh delay in seconds\n");
+		print($CYAN . "\t--notify  \$email $RESET(default: off)  - Send email when slow query hits --limit value\n");
+		print($CYAN . "\t--limit   \$time  $RESET(default: 30)   - Notify limit in seconds\n");
+		print($CYAN . "\t--ansi    0/1    $RESET(default: off)  - Ansi escape character method for smoother refresh that reduces flickering\n");
+		print($CYAN . "\t--header  0/1    $RESET(default: on)   - Show header\n");
+		print($CYAN . "\t--idle    0/1    $RESET(default: off)  - Show idle threads\n");
+		print($CYAN . "\t--resolve 0/1    $RESET(default: on)   - Resolve IPs to hostnames\n");
+		print($CYAN . "\t--sort    0/1    $RESET(default: on)   - Reverse sort\n");
 		print($CYAN . "\t--prompt         $RESET(prompts for password; text is invisible)\n");
 
 		exit;
@@ -843,15 +983,16 @@ function helpme($command) {
 		printf("$BOLD%-9s$RESET %s", "     d", "Filter by database\n");
 		printf("$BOLD%-9s$RESET %s", "     D", "Display available databases\n");
 		printf("$BOLD%-9s$RESET %s", "     e", "Explain query/show information of a thread ID\n");
-		printf("$BOLD%-9s$RESET %s", "     h", "Filter by host/IP\n");
+		printf("$BOLD%-9s$RESET %s", "     h", "Filter by hostname/IP\n");
 		printf("$BOLD%-9s$RESET %s", "     H", "Hide/show stats header\n");
 		printf("$BOLD%-9s$RESET %s", "     i", "Hide/show idle threads\n");
 		printf("$BOLD%-9s$RESET %s", "     k", "Kill thread by ID\n");
-		printf("$BOLD%-9s$RESET %s", "     K", "Kill threads by username, host, or time range\n");
+		printf("$BOLD%-9s$RESET %s", "     K", "Kill threads by username, hostname, or time range\n");
+		printf("$BOLD%-9s$RESET %s", "     l", "Set notify limit for slow queries\n");
 		printf("$BOLD%-9s$RESET %s", "     o", "Reverse sort order\n");
 		printf("$BOLD%-9s$RESET %s", "     p", "Pause screen\n");
 		printf("$BOLD%-9s$RESET %s", "     q", "Quit\n");
-		printf("$BOLD%-9s$RESET %s", "     r", "Resolve IPs to hostnames and vice versa\n");
+		printf("$BOLD%-9s$RESET %s", "     r", "Resolve IPs to hostnames\n");
 		printf("$BOLD%-9s$RESET %s", "     R", "Reset MySQL status counters via FLUSH STATUS\n");
 		printf("$BOLD%-9s$RESET %s", "     s", "Set delay in seconds\n");
 		printf("$BOLD%-9s$RESET %s", "     t", "Filter by minimum time\n");
