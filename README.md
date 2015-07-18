@@ -76,8 +76,8 @@ Command Description
 If you'd like to contribute, feel free to submit a merge request or get in contact with me. I'm open to all suggestions!
 
 Current issues I'm tackling:
-  1) Whenever ansi refresh is enabled, blank space in the header section can have "ghost" characters saved whenever you resize the terminal and what not. I have no clue why it does that. mytop doesn't behave like that so I believe it's something PHP specific. 
-  2) Want to get rid of the readline dependency. It has to be installed w/ PHP from what I read so that's an issue for non-power users.
+* Whenever ansi refresh is enabled, blank space in the header section can have "ghost" characters saved whenever you resize the terminal and what not. I have no clue why it does that. mytop doesn't behave like that so I believe it's something PHP specific. 
+* Want to get rid of the readline dependency. It has to be installed w/ PHP from what I read so that's an issue for non-power users.
 
 If you know how to fix any of these issues, please let me know! :-)
 
