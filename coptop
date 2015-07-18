@@ -295,24 +295,28 @@ while (1) {
 		print(
 			sprintf("%-31s", "\nInnoDB Efficiency: $RESET$CYAN") . sprintf("%-9s", $innodb_hit_rate) . "$RESET" . 
 			sprintf("%-28s", "Open Tables: $RESET$CYAN") . sprintf("%-9s", $status['Open_tables']) . "$RESET" . 
-			sprintf("%-32s", "Aborted Clients: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_clients']) . "$RESET\n");
+			sprintf("%-32s", "Aborted Clients: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_clients']) . "$RESET\n"
+			);
 
 		print(
 			sprintf("%-30s", "MyISAM Efficiency: $RESET$CYAN") . sprintf("%-9s", $myisam_hit_rate) . "$RESET" . 
 			sprintf("%-28s", "Opened Tables: $RESET$CYAN") . sprintf("%-9s", $status['Opened_tables']) . "$RESET" . 
-			sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET\n");
+			sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET\n"
+			);
 
 		print(
 			sprintf("%-30s", "Threads Connected: $RESET$CYAN") . sprintf("%-9s", $status['Threads_connected']) . "$RESET" . 
 			sprintf("%-28s", "Threads Created: $RESET$CYAN") . sprintf("%-9s", $status['Threads_created']) . "$RESET" . 
 			sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_tables']) . 
-			"$RESET$tmp_tables_memory\n");
+			"$RESET$tmp_tables_memory\n"
+			);
 
 		print(
 			sprintf("%-30s", "Threads Running: $RESET$CYAN") . sprintf("%-9s", $status['Threads_running']) . "$RESET" . 
 			sprintf("%-28s", "Threads Cached: $RESET$CYAN") . sprintf("%-9s", $status['Threads_cached']) . "$RESET" . 
 			sprintf("%-32s", "Tmp Tables Disk: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_disk_tables']) . 
-			"$RESET$tmp_tables_disk\n");
+			"$RESET$tmp_tables_disk\n"
+			);
 
 		if ($slave_status) {
 			if ($config['resolve_ip']) {
@@ -794,7 +798,8 @@ function read_key($key) {
 				'max_connect_errors', 'max_connections', 'old_passwords', 'open_files_limit', 'port',
 				'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id', 
 				'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache', 
-				'thread_cache_size', 'wait_timeout');
+				'thread_cache_size', 'wait_timeout'
+				);
 
 			print($BOLD . "MySQL variables for $BOLD_CYAN" . $config['server'] . "$RESET$BOLD at a glance$RESET\n\n");
 			foreach ($special_list as $variable) {
