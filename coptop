@@ -72,11 +72,11 @@ $version        = "v1.1";
 
 if ($master_version > $version) {
 	$message = $RED . "Your version: $RESET$version$RESET\n" . 
-			   $GREEN . "New version:  $RESET$master_version$RESET\n\n" . 
-			   "There's a new version of$BOLD_CYAN coptop$RESET available! Please receive the latest and greatest by:\n" .
-			   " - Downloading coptop from https://github.com/vuther/coptop\n" . 
-			   " - git pull\n\n" . 
-			   $CYAN . "Press any key to resume coptop$RESET\n";
+	$GREEN . "New version:  $RESET$master_version$RESET\n\n" . 
+	"There's a new version of$BOLD_CYAN coptop$RESET available! Please receive the latest and greatest by either:\n" .
+	"   - Downloading from https://github.com/vuther/coptop\n" . 
+	"   - git pull\n\n" . 
+	$CYAN . "Press any key to resume$RESET\n";
 
 	pause($message);
 }
@@ -293,17 +293,17 @@ while (1) {
 		}
 
 		print(sprintf("%-31s", "\nInnoDB Efficiency: $RESET$CYAN") . sprintf("%-9s", $innodb_hit_rate) . "$RESET" . 
-			  sprintf("%-28s", "Open Tables: $RESET$CYAN") . sprintf("%-9s", $status['Open_tables']) . "$RESET" . 
-			  sprintf("%-32s", "Aborted Clients: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_clients']) . "$RESET\n");
+			sprintf("%-28s", "Open Tables: $RESET$CYAN") . sprintf("%-9s", $status['Open_tables']) . "$RESET" . 
+			sprintf("%-32s", "Aborted Clients: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_clients']) . "$RESET\n");
 
 		print(sprintf("%-30s", "MyISAM Efficiency: $RESET$CYAN") . sprintf("%-9s", $myisam_hit_rate) . "$RESET" . 
-			  sprintf("%-28s", "Opened Tables: $RESET$CYAN") . sprintf("%-9s", $status['Opened_tables']) . "$RESET" . 
-			  sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET\n");
+			sprintf("%-28s", "Opened Tables: $RESET$CYAN") . sprintf("%-9s", $status['Opened_tables']) . "$RESET" . 
+			sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET\n");
 
 		print(sprintf("%-30s", "Threads Connected: $RESET$CYAN") . sprintf("%-9s", $status['Threads_connected']) . "$RESET" . 
-			  sprintf("%-28s", "Threads Created: $RESET$CYAN") . sprintf("%-9s", $status['Threads_created']) . "$RESET" . 
-			  sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_tables']) . 
-			  "$RESET$tmp_tables_memory\n");
+			sprintf("%-28s", "Threads Created: $RESET$CYAN") . sprintf("%-9s", $status['Threads_created']) . "$RESET" . 
+			sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_tables']) . 
+			"$RESET$tmp_tables_memory\n");
 
 		print(sprintf("%-30s", "Threads Running: $RESET$CYAN") . sprintf("%-9s", $status['Threads_running']) . "$RESET" . 
 			  sprintf("%-28s", "Threads Cached: $RESET$CYAN") . sprintf("%-9s", $status['Threads_cached']) . "$RESET" . 
@@ -495,8 +495,8 @@ while (1) {
 		// Print thread
 		print($color);
 		printf("%10d %10.9s %13.12s %10.9s %9s %9.8s %-$free_screen.$free_screen" . "s",
-			   $id, $thread['user'], $thread['host'], $thread['db'],
-			   $thread['formatted_time'], $thread['command'], " $info");
+			$id, $thread['user'], $thread['host'], $thread['db'],
+			$thread['formatted_time'], $thread['command'], " $info");
 		print("$RESET\n");
 
 		$lines_left--;
@@ -783,13 +783,13 @@ function read_key($key) {
 
 			$variables    = execute_query($commands['variables'], 1);
 			$special_list = array('binlog_format', 'character_set_server', 'collation_server', 'innodb_checksum_algorithm', 
-							  'innodb_flush_method', 'innodb_file_format','innodb_file_format_max', 'innodb_file_per_table', 
-							  'innodb_flush_log_at_trx_commit', 'innodb_open_files','interactive_timeout', 'log_bin', 
-							  'log_queries_not_using_indexes','log_slave_updates', 'log_warnings', 'long_query_time', 
-							  'max_connect_errors', 'max_connections', 'old_passwords', 'open_files_limit', 'port',
-							  'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id', 
-							  'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache', 
-							  'thread_cache_size', 'wait_timeout');
+							'innodb_flush_method', 'innodb_file_format','innodb_file_format_max', 'innodb_file_per_table', 
+							'innodb_flush_log_at_trx_commit', 'innodb_open_files','interactive_timeout', 'log_bin', 
+							'log_queries_not_using_indexes','log_slave_updates', 'log_warnings', 'long_query_time', 
+							'max_connect_errors', 'max_connections', 'old_passwords', 'open_files_limit', 'port',
+							'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id', 
+							'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache', 
+							'thread_cache_size', 'wait_timeout');
 
 			print($BOLD . "MySQL variables for $BOLD_CYAN" . $config['server'] . "$RESET$BOLD at a glance$RESET\n\n");
 			foreach ($special_list as $variable) {
@@ -879,61 +879,61 @@ function email_query($id, $thread) {
 		font-size: 16px;
 	}
 	hr {
-	  margin-top: 1px;
-	  border: none;
-      height: 1px;
-      color: #D2D2D2; /* old IE */
-      background-color: #D2D2D2; /* Modern Browsers */
+		margin-top: 1px;
+		border: none;
+		height: 1px;
+		color: #D2D2D2; /* old IE */
+		background-color: #D2D2D2; /* Modern Browsers */
 	}
 	table {
-	  border-spacing: 0;
-	  border-collapse: collapse;
+		border-spacing: 0;
+		border-collapse: collapse;
 	}
 	td,
 	th {
-	  padding: 0;
+		padding: 0;
 	}
 	table {
-	  background-color: transparent;
+		background-color: transparent;
 	}
 	th {
-	  text-align: left;
-	  background-color: #f2f2f2;
+		text-align: left;
+		background-color: #f2f2f2;
 	}
 	.table {
-	  width: 45%;
-	  max-width: 45%;
-	  margin-bottom: 10px;
+		width: 45%;
+		max-width: 45%;
+		margin-bottom: 10px;
 	}
 	.table-curved {
-	    border-collapse: separate;
+		border-collapse: separate;
 	}
 	.table-curved {
-	    border: solid #ccc 1px;
-	    border-radius: 6px;
-	    border-left:0px;
+		border: solid #ccc 1px;
+		border-radius: 6px;
+		border-left:0px;
 	}
 	.table-curved td, .table-curved th {
-	    border-left: 1px solid #ccc;
-	    border-top: 1px solid #ccc;
+		border-left: 1px solid #ccc;
+		border-top: 1px solid #ccc;
 	}
 	.table-curved th {
-	    border-top: none;
+		border-top: none;
 	}
 	.table-curved th:first-child {
-	    border-radius: 6px 0 0 0;
+		border-radius: 6px 0 0 0;
 	}
 	.table-curved th:last-child {
-	    border-radius: 0 6px 0 0;
+		border-radius: 0 6px 0 0;
 	}
 	.table-curved th:only-child{
-	    border-radius: 6px 6px 0 0;
+		border-radius: 6px 6px 0 0;
 	}
 	.table-curved tr:last-child td:first-child {
-	    border-radius: 0 0 0 3px;
+		border-radius: 0 0 0 3px;
 	}
 	.table-curved tr:last-child td:last-child {
-	    border-radius: 0 0 3px 0;
+		border-radius: 0 0 3px 0;
 	}
 	.table > thead > tr > th,
 	.table > tbody > tr > th,
@@ -941,9 +941,9 @@ function email_query($id, $thread) {
 	.table > thead > tr > td,
 	.table > tbody > tr > td,
 	.table > tfoot > tr > td {
-	  padding: 5px;
-	  line-height: 1.42857143;
-	  vertical-align: top;
+		padding: 5px;
+		line-height: 1.42857143;
+		vertical-align: top;
 	}
 	</style></head><body>
 	<table class=\"table table-curved\">
@@ -955,15 +955,15 @@ function email_query($id, $thread) {
 	$headers    .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
 
 	$email_body .= "<tr><td>ID</td><td>" . $id . "</td></tr>" . 
-				   "<tr><td>User</td><td>" . $thread['user'] . '@' . $thread['host'] . "</td></tr>" . 
-				   "<tr><td>Database</td><td>" . $thread['db'] . "</td></tr>" . 
-				   "<tr><td>Command</td><td>" . $thread['command'] . "</td></tr>" . 
-				   "<tr><td>State</td><td>" . $thread['state'] . "</td></tr>" . 
-				   "<tr><td>Time</td><td>" . $thread['formatted_time'] . "</td></tr>" . 
-				   "</table>" .
-				   "<span style=\"font-size: 18px; font-weight: bold;\">Query</span>" . 
-				   "<hr>" .
-				   "<span>" . $thread['info'] . "</span>";
+					"<tr><td>User</td><td>" . $thread['user'] . '@' . $thread['host'] . "</td></tr>" . 
+					"<tr><td>Database</td><td>" . $thread['db'] . "</td></tr>" . 
+					"<tr><td>Command</td><td>" . $thread['command'] . "</td></tr>" . 
+					"<tr><td>State</td><td>" . $thread['state'] . "</td></tr>" . 
+					"<tr><td>Time</td><td>" . $thread['formatted_time'] . "</td></tr>" . 
+					"</table>" .
+					"<span style=\"font-size: 18px; font-weight: bold;\">Query</span>" . 
+					"<hr>" .
+					"<span>" . $thread['info'] . "</span>";
 
 	mail($config['notify_email'], $subject, $email_body, $headers);
 }
