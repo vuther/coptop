@@ -9,7 +9,6 @@
 //////////////////////////////////
 //       Defaults Settings      //
 //////////////////////////////////
-$version = "v1.1";
 $config  = array(
 	'user'           => '',
 	'password'       => '',
@@ -64,6 +63,23 @@ $ansi_chars = array(
 	'HIDE_CURSOR'     => $CSI . "?25l", # Hide cursor
 	'SHOW_CURSOR'     => $CSI . "?25h"  # Show cursor
 );   
+
+//////////////////////////////////
+//  Notify user of new version  //
+//////////////////////////////////
+$master_version = trim(file_get_contents('https://raw.githubusercontent.com/vuther/coptop/master/version')); 
+$version        = "v1.1";
+
+if ($master_version > $version) {
+	$message = $RED . "Your version: $RESET$version$RESET\n" . 
+			   $GREEN . "New version:  $RESET$master_version$RESET\n\n" . 
+			   "There's a new version of$BOLD_CYAN coptop$RESET available! Please receive the latest and greatest by:\n" .
+			   " - Downloading coptop from https://github.com/vuther/coptop\n" . 
+			   " - git pull\n\n" . 
+			   $CYAN . "Press any key to resume coptop$RESET\n";
+
+	pause($message);
+}
 
 //////////////////////////////////
 //   Check required functions   //
@@ -800,11 +816,12 @@ function read_stdin($prompt) {
 	return stream_get_line(STDIN, 1024, PHP_EOL);
 }
 
-function pause() {
+function pause($message = NULL) {
 	global $CYAN, $RESET;
 
-	print($CYAN. "\nPaused! Press any key to resume.$RESET");
-	
+	if ($message == NULL) $message = $CYAN. "\nPaused! Press any key to resume.$RESET";
+	print($message);
+
 	readline_callback_handler_install('', function() { });
 	while (1) {
 		$r = array(STDIN);
