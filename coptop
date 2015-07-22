@@ -71,7 +71,7 @@ $ansi_chars = array(
 //  Notify user of new version  //
 //////////////////////////////////
 $master_version = trim(file_get_contents('https://raw.githubusercontent.com/vuther/coptop/master/version')); 
-$version        = "v1.1";
+$version        = "v1.2";
 
 if ($master_version > $version) {
 	$message = $RED . "Your version: $RESET$version$RESET\n" . 
