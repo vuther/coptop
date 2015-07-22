@@ -43,10 +43,13 @@ $commands = array(
 $key_press_delay    = 10;
 $delay_microseconds = 100 * 1000;
 
+// These are helpful to make coptop work smoothly w/ Linux
+$system_options     = 'stty echo; stty icanon; stty iexten';
+
 //////////////////////////////////
 //        ANSI Characters       //
 //////////////////////////////////
-$CSI        = "\e[";
+$CSI        = "\x1b[";
 $RESET      = $CSI . "0m";
 $RED        = $CSI . "0;31m";
 $GREEN      = $CSI . "0;32m";
@@ -57,11 +60,11 @@ $BOLD_CYAN  = $CSI . "1;36m";
 $BOLD       = $CSI . "1m";
 $UNDERLINE  = $CSI . "4m";
 $ansi_chars = array(
-	'CURSOR_TO_START' => $CSI . "H",    # Start the cursor 
-	'EEL'             => $CSI . "K",    # Clear line from cursor right
-	'EEB'             => $CSI . "J",    # Clear screen from cursor down
-	'HIDE_CURSOR'     => $CSI . "?25l", # Hide cursor
-	'SHOW_CURSOR'     => $CSI . "?25h"  # Show cursor
+	'CURSOR_TO_START' => $CSI . "H",    // Start the cursor 
+	'EEL'             => $CSI . "K",    // Clear line from cursor right
+	'EEB'             => $CSI . "J",    // Clear screen from cursor down
+	'HIDE_CURSOR'     => $CSI . "?25l", // Hide cursor
+	'SHOW_CURSOR'     => $CSI . "?25h"  // Show cursor
 );   
 
 //////////////////////////////////
@@ -144,9 +147,8 @@ if (isset($opts['limit']))   $config['notify_limit'] = $opts['limit'];
 if (isset($opts['prompt'])) {
 	print($CYAN . "Password: $RESET");
 	system('stty -echo');
-	$config['password'] = trim(fgets(STDIN));
-	system('stty echo');
-	echo "\n";
+	$config['password'] = stream_get_line(STDIN, 1024, PHP_EOL);
+	system($system_options);
 }
 
 //////////////////////////////////
@@ -182,18 +184,20 @@ if (strpos($version_comment, 'mariadb cluster') !== false) {
 	$db_fork = 'Percona Server';
 } else {
 	$db_fork = 'MySQL';
-	$use_processlist_query = 1; # Regular MySQL doesn't have TIME_MS field in PROCESSLIST table
+	$use_processlist_query = 1; // Regular MySQL doesn't have TIME_MS field in PROCESSLIST table
 }
 
 // Get version without the garbage at the end
 $db_version = explode('-', $variables['version']);
 $db_version = $db_version[0];
 
-// Clear screen and create some arrays
-system('clear');
+// Clear screen and create some variables
 $status         = array();
 $servers_slaved = array();
 $slow_queries   = array();
+$old_cols       = '';
+$old_lines      = '';
+$first_clear    = 0;
 //////////////////////////////////
 //          Main Loop           //
 //////////////////////////////////
@@ -202,7 +206,13 @@ while (1) {
 	$cols  = exec('tput cols');
 	$lines = exec('tput lines');
 
-	// Find out how many lines we can use
+	// If terminal was resized, clear screen to help ansi refresh option
+	if ($cols != $old_cols || $lines != $old_lines) {
+		system('clear');
+	}
+
+	$old_cols   = $cols;
+	$old_lines  = $lines;
 	$lines_left = $lines - 1;
 
 	// Save old status data
@@ -235,21 +245,21 @@ while (1) {
 		$deletes_per_sec = 0;
 	}
 
-	# MyISAM Efficiency
+	// MyISAM Efficiency
 	if ($status['Key_reads'] && $status['Key_read_requests']) {
 		$myisam_hit_rate = sprintf("%.2f%%", (100 - ($status['Key_reads'] / $status['Key_read_requests']) * 100));
 	} else {
 		$myisam_hit_rate = "N/A";
 	}
 
-	# InnoDB Efficiency
+	// InnoDB Efficiency
 	if ($status['Innodb_buffer_pool_read_requests'] && $status['Innodb_buffer_pool_reads']) {
 		$innodb_hit_rate = sprintf("%.2f%%", (100 - ($status['Innodb_buffer_pool_reads'] / ($status['Innodb_buffer_pool_read_requests'])) * 100));
 	} else {
 		$innodb_hit_rate = "N/A";
 	}
 
-	# Calculate tmp tables per second
+	// Calculate tmp tables per second
 	if (isset($old_status['Created_tmp_disk_tables'])) {
 		$tmp_tables_per_sec      = $status['Created_tmp_tables']      - $old_status['Created_tmp_tables'];
 		$tmp_disk_tables_per_sec = $status['Created_tmp_disk_tables'] - $old_status['Created_tmp_disk_tables'];
@@ -258,6 +268,7 @@ while (1) {
 		$tmp_disk_tables_per_sec = 0;
 	}
 
+	// If delay isn't set to 1 then don't show per second stats
 	if ($config['delay'] == 1) {
 		$tmp_tables_memory = "$RESET($CYAN$tmp_tables_per_sec/s$RESET)";
 		$tmp_tables_disk   = "$RESET($CYAN$tmp_disk_tables_per_sec/s$RESET)";
@@ -269,6 +280,11 @@ while (1) {
 	// ANSI characters for smoother refresh
 	if ($config['ansi_refresh']) {
 		print($ansi_chars['EEL']);
+		// This is an ansi refresh hack to fix ghost characters...
+		if ($first_clear != 2) {
+			system('clear');
+			$first_clear++;
+		}
 	} else {
 		system('clear'); // Clear screen
 	}
@@ -278,44 +294,49 @@ while (1) {
 	//     Print Header Section     //
 	//////////////////////////////////
 	if ($config['header']) {
-		$help_section = $cols - 20;
-		$repeat_char  = str_repeat(" ", $cols);
+		$help_section_pad = $cols - 20;
+		$underline_pad    = str_repeat(" ", $cols);
 
-		if ($config['ansi_refresh']) print($ansi_chars['CURSOR_TO_START']);
-		printf("%-$help_section" . "s", "Monitoring database server$MAGENTA " . $config['server'] . $RESET . " ($db_fork v$db_version)");
+		$pad_space = '';
+		if ($config['ansi_refresh']) {
+			print($ansi_chars['CURSOR_TO_START']);
+			$pad_space = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
+		} 
+
+		printf("%-$help_section_pad" . "s", "Monitoring database server$MAGENTA " . $config['server'] . $RESET . " ($db_fork v$db_version)");
 		print("$BOLD_CYAN coptop $version$RESET - Press ? for help$RESET\n");
-		printf("%-18s %s", "MySQL Uptime", "$CYAN$uptime$RESET\n");
+		printf("%-18s %s", "MySQL Uptime", "$CYAN$uptime$RESET$pad_space\n");
 
 		if ($config['delay'] == 1) {
 			printf("%-18s %s", "Query Analytics", "Selects: $CYAN$selects_per_sec" . "/s$RESET, Updates: $CYAN$updates_per_sec/s$RESET, " . 
-												  "Deletes: $CYAN$deletes_per_sec" . "/s$RESET, Inserts: $CYAN$inserts_per_sec/s$RESET\n");
+												  "Deletes: $CYAN$deletes_per_sec" . "/s$RESET, Inserts: $CYAN$inserts_per_sec/s$RESET$pad_space\n");
 			$lines_left--;
 		}
 
 		print(
 			sprintf("%-31s", "\nInnoDB Efficiency: $RESET$CYAN") . sprintf("%-9s", $innodb_hit_rate) . "$RESET" . 
 			sprintf("%-28s", "Open Tables: $RESET$CYAN") . sprintf("%-9s", $status['Open_tables']) . "$RESET" . 
-			sprintf("%-32s", "Aborted Clients: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_clients']) . "$RESET\n"
+			sprintf("%-32s", "Aborted Clients: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_clients']) . "$RESET$pad_space\n"
 			);
 
 		print(
 			sprintf("%-30s", "MyISAM Efficiency: $RESET$CYAN") . sprintf("%-9s", $myisam_hit_rate) . "$RESET" . 
 			sprintf("%-28s", "Opened Tables: $RESET$CYAN") . sprintf("%-9s", $status['Opened_tables']) . "$RESET" . 
-			sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET\n"
+			sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET$pad_space\n"
 			);
 
 		print(
 			sprintf("%-30s", "Threads Connected: $RESET$CYAN") . sprintf("%-9s", $status['Threads_connected']) . "$RESET" . 
 			sprintf("%-28s", "Threads Created: $RESET$CYAN") . sprintf("%-9s", $status['Threads_created']) . "$RESET" . 
 			sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_tables']) . 
-			"$RESET$tmp_tables_memory\n"
+			"$RESET$tmp_tables_memory$pad_space\n"
 			);
 
 		print(
 			sprintf("%-30s", "Threads Running: $RESET$CYAN") . sprintf("%-9s", $status['Threads_running']) . "$RESET" . 
 			sprintf("%-28s", "Threads Cached: $RESET$CYAN") . sprintf("%-9s", $status['Threads_cached']) . "$RESET" . 
 			sprintf("%-32s", "Tmp Tables Disk: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_disk_tables']) . 
-			"$RESET$tmp_tables_disk\n"
+			"$RESET$tmp_tables_disk$pad_space\n"
 			);
 
 		if ($slave_status) {
@@ -335,24 +356,24 @@ while (1) {
 
 			print("\n");
 			print(sprintf("%-30s", "Slave IO: $RESET$CYAN") . sprintf("%-9s", $slave_status['Slave_IO_Running']) . "$RESET" . "Reading Log:    " .
-				"$RESET$CYAN " . $slave_status['Master_Log_File'] . "$RESET (position: $CYAN" . $slave_status['Exec_Master_Log_Pos'] . "$RESET)\n");
+				"$RESET$CYAN " . $slave_status['Master_Log_File'] . "$RESET (position: $CYAN" . $slave_status['Exec_Master_Log_Pos'] . "$RESET)$pad_space\n");
 			print(sprintf("%-30s", "Slave SQL: $RESET$CYAN") .  sprintf("%-9s", $slave_status['Slave_SQL_Running']) . "$RESET" . "Seconds Behind:  " .
-				"$RESET$CYAN" . $slave_status['Seconds_Behind_Master'] . "$RESET\n");
-			print("Slaved to Master:  $RESET$CYAN" . $slave_status['Master_Host'] . "$RESET\n");
+				"$RESET$CYAN" . $slave_status['Seconds_Behind_Master'] . "$pad_space$RESET\n");
+			print("Slaved to Master:  $RESET$CYAN" . $slave_status['Master_Host'] . "$pad_space$RESET\n");
 			$lines_left -= 4;
 		}
 
 		if ($master_status) {
-			print("\nMaster Binary Log: $CYAN" . $master_status['File'] . "$RESET (position: $CYAN" . $master_status['Position'] . "$RESET)\n");
+			print("\nMaster Binary Log: $CYAN" . $master_status['File'] . "$RESET (position: $CYAN" . $master_status['Position'] . "$RESET)$pad_space\n");
 			$lines_left -= 2;
 
 			if ($servers_slaved) {
-				print("Slave Server(s):   $CYAN" .  implode(", ", $servers_slaved) . "\n");
+				print("Slave Server(s):   $CYAN" .  implode(", ", $servers_slaved) . "$pad_space\n");
 				$lines_left--;
 			}
 		}
 
-		print("$CYAN$UNDERLINE$repeat_char$RESET\n\n");
+		print("$CYAN$UNDERLINE$underline_pad$RESET\n\n");
 		$lines_left -= 9;
 	} else {
 		if ($config['ansi_refresh']) print($ansi_chars['CURSOR_TO_START']);
@@ -514,7 +535,7 @@ while (1) {
 	// Print some ansi characters
 	if ($config['ansi_refresh']) print($ansi_chars['EEL'] . $ansi_chars['EEB']);
 	print($ansi_chars['SHOW_CURSOR']);
-
+	
 	//////////////////////////////////
 	//      Capture Key Press       //
 	//////////////////////////////////
@@ -537,7 +558,10 @@ while (1) {
 			break;
 		}
 
-		if ($result) break; // Break out of key press loop if a command was run
+		if ($result) {
+			system('clear');
+			break; // Break out of key press loop if a command was run
+		}
 	}
 }
 
@@ -819,10 +843,10 @@ function read_key($key) {
 }
 
 function read_stdin($prompt) {
-	global $CYAN, $RESET;
+	global $CYAN, $RESET, $system_options;
 
 	print("$CYAN$prompt$RESET");
-	system('stty echo'); //  Input text will be invisible without this...
+	system($system_options);
 	return stream_get_line(STDIN, 1024, PHP_EOL);
 }
 
