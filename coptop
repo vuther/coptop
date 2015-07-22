@@ -591,8 +591,7 @@ function read_key($key) {
 			$run_command = 1;
 			break;
 		case 'd': // Filter by database
-			$input = read_stdin("Database to filter by: ");
-			$config['db_filter'] = $input;
+			$config['db_filter'] = read_stdin("Database to filter by: ");
 
 			$run_command = 1;
 			break;
@@ -647,8 +646,7 @@ function read_key($key) {
 			$run_command = 1;
 			break;
 		case 'h': // Filter by hostname/IP
-			$input = read_stdin("Hostname/IP to filter by: ");
-			$config['host_filter'] = $input;
+			$config['host_filter'] = read_stdin("Hostname/IP to filter by: ");
 
 			$run_command = 1;
 			break;
@@ -785,6 +783,7 @@ function read_key($key) {
 			break;
 		case 's': // Seconds of delay
 			$input = read_stdin("Seconds of delay: ");
+
 			if (is_numeric($input)) {
 				$config['delay'] = $input;
 			} else {
@@ -805,8 +804,7 @@ function read_key($key) {
 			$run_command = 1;
 			break;
 		case 'u': // Filter by user
-			$input = read_stdin("User to filter by: ");
-			$config['user_filter'] = $input;
+			$config['user_filter'] = read_stdin("User to filter by: ");
 
 			$run_command = 1;
 			break;
