@@ -44,7 +44,7 @@ $key_press_delay    = 10;
 $delay_microseconds = 100 * 1000;
 
 // These are helpful to make coptop work smoothly w/ Linux
-$system_options     = 'stty echo; stty icanon; stty iexten';
+$system_options     = 'stty echo; stty icanon; stty iexten; stty icrnl';
 
 //////////////////////////////////
 //        ANSI Characters       //
