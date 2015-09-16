@@ -198,6 +198,7 @@ $slow_queries   = array();
 $old_cols       = '';
 $old_lines      = '';
 $first_clear    = 0;
+$master_binary  = 1;
 //////////////////////////////////
 //          Main Loop           //
 //////////////////////////////////
@@ -220,8 +221,11 @@ while (1) {
 
 	// Get our statuses in arrays
 	$status        = execute_query($commands['status'], 1);
-	$master_status = execute_query($commands['master'], 2);
 	$slave_status  = execute_query($commands['slave'], 2);
+	if ($master_binary) {
+		$master_status = execute_query($commands['master'], 2);
+		if (!$master_status) $master_binary = 0;
+	}
 
 	//////////////////////////////////
 	//    Calculations for Header   //
@@ -300,7 +304,8 @@ while (1) {
 		$pad_space = '';
 		if ($config['ansi_refresh']) {
 			print($ansi_chars['CURSOR_TO_START']);
-			$pad_space = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
+			$pad_space  = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
+			$pad_space2 = str_repeat(" " , 50); // This is an ansi refresh hack to fix ghost characters...
 		} 
 
 		printf("%-$help_section_pad" . "s", "Monitoring database server$MAGENTA " . $config['server'] . $RESET . " ($db_fork v$db_version)");
@@ -325,17 +330,19 @@ while (1) {
 			sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET$pad_space\n"
 			);
 
+		$tmp_tables_space = strlen($status['Created_tmp_tables']) + 1;
+
 		print(
 			sprintf("%-30s", "Threads Connected: $RESET$CYAN") . sprintf("%-9s", $status['Threads_connected']) . "$RESET" . 
 			sprintf("%-28s", "Threads Created: $RESET$CYAN") . sprintf("%-9s", $status['Threads_created']) . "$RESET" . 
-			sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_tables']) . 
+			sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-$tmp_tables_space" . "s", $status['Created_tmp_tables']) . 
 			"$RESET$tmp_tables_memory$pad_space\n"
 			);
 
 		print(
 			sprintf("%-30s", "Threads Running: $RESET$CYAN") . sprintf("%-9s", $status['Threads_running']) . "$RESET" . 
 			sprintf("%-28s", "Threads Cached: $RESET$CYAN") . sprintf("%-9s", $status['Threads_cached']) . "$RESET" . 
-			sprintf("%-32s", "Tmp Tables Disk: $RESET$CYAN") . sprintf("%-10s", $status['Created_tmp_disk_tables']) . 
+			sprintf("%-32s", "Tmp Tables Disk: $RESET$CYAN") . sprintf("%-$tmp_tables_space" . "s", $status['Created_tmp_disk_tables']) . 
 			"$RESET$tmp_tables_disk$pad_space\n"
 			);
 
@@ -368,7 +375,7 @@ while (1) {
 			$lines_left -= 2;
 
 			if ($servers_slaved) {
-				print("Slave Server(s):   $CYAN" .  implode(", ", $servers_slaved) . "$pad_space\n");
+				print("Slave Server(s):   $CYAN" .  implode(", ", $servers_slaved) . "$pad_space2\n");
 				$lines_left--;
 			}
 		}
@@ -465,7 +472,6 @@ while (1) {
 	// This is to show sleeping threads if there's not a lot threads when you first begin to monitor the server
 	if (!isset($first_time) && sizeof($thread_data) <= $lines_left) {
 		$config['show_idle'] = 1;
-		$first_time          = 1;
 	}
 
 	// Sort by time
@@ -517,9 +523,15 @@ while (1) {
 			$thread['command']  == 'Connect' || 
 			$thread['command']  == "Binlog Dump") { $color = $RESET; } 
 		else if ($thread['user'] == 'backup') { $color = $MAGENTA; } 
-		else if ($thread['seconds'] <= 0) { $color = $GREEN; } 
-		else if ($thread['seconds'] >= 3) { $color = $RED; } 
-		else if ($thread['seconds'] >= 1) { $color = $YELLOW; }
+		else if ($thread['seconds'] <= 0) { 
+			if ($thread['time'] <= 500) {
+				$color = $GREEN;
+			} else {
+				$color = $YELLOW;
+			}
+		}
+		else if ($thread['seconds'] == 1) { $color = $YELLOW; }
+		else if ($thread['seconds'] >= 2) { $color = $RED; } 
 
 		// Print thread
 		print($color);
@@ -563,6 +575,8 @@ while (1) {
 			break; // Break out of key press loop if a command was run
 		}
 	}
+
+	$first_time = 1;
 }
 
 //////////////////////////////////
@@ -661,9 +675,11 @@ function read_key($key) {
 			break;
 		case 'i': // Hide/Show sleeping threads
 			if ($config['show_idle']) {
-				$config['show_idle'] = 0;
+				$config['show_idle']    = 0;
+				$config['reverse_sort'] = 1; 
 			} else {
-				$config['show_idle'] = 1;
+				$config['show_idle']    = 1;
+				$config['reverse_sort'] = 0;
 			}
 
 			$run_command = 1;
@@ -820,9 +836,10 @@ function read_key($key) {
 				'max_connect_errors', 'max_connections', 'old_passwords', 'open_files_limit', 'port',
 				'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id', 
 				'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache', 
-				'thread_cache_size', 'wait_timeout'
+				'thread_cache_size', 'wait_timeout', 'connect_timeout'
 				);
 
+			sort($special_list);
 			print($BOLD . "MySQL variables for $BOLD_CYAN" . $config['server'] . "$RESET$BOLD at a glance$RESET\n\n");
 			foreach ($special_list as $variable) {
 				if (isset($variables[$variable])) {
