@@ -323,7 +323,7 @@ while (1) {
 			printf("%-18s %s", "Analytics", "Selects:  $CYAN$selects_per_sec" . "/s$RESET, Updates: $CYAN$updates_per_sec/s$RESET, " . 
 											"Deletes: $CYAN$deletes_per_sec" . "/s$RESET, Inserts: $CYAN$inserts_per_sec/s$RESET$pad_space\n" .
 											"                   Connects: $CYAN$connections_per_sec$RESET$pad_space\n");
-			$lines_left--;
+			$lines_left -= 2;
 		}
 
 		print(
