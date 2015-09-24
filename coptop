@@ -272,6 +272,13 @@ while (1) {
 		$tmp_disk_tables_per_sec = 0;
 	}
 
+	// Calculate connections per second
+	if (isset($old_status['Connections'])) {
+		$connections_per_sec  = ($status['Connections'] - $old_status['Connections']) . "/s";
+	} else {
+		$connections_per_sec  = 0;
+	}
+
 	// If delay isn't set to 1 then don't show per second stats
 	if ($config['delay'] == 1) {
 		$tmp_tables_memory = "$RESET($CYAN$tmp_tables_per_sec/s$RESET)";
@@ -313,8 +320,9 @@ while (1) {
 		printf("%-18s %s", "MySQL Uptime", "$CYAN$uptime$RESET$pad_space\n");
 
 		if ($config['delay'] == 1) {
-			printf("%-18s %s", "Query Analytics", "Selects: $CYAN$selects_per_sec" . "/s$RESET, Updates: $CYAN$updates_per_sec/s$RESET, " . 
-												  "Deletes: $CYAN$deletes_per_sec" . "/s$RESET, Inserts: $CYAN$inserts_per_sec/s$RESET$pad_space\n");
+			printf("%-18s %s", "Analytics", "Selects:  $CYAN$selects_per_sec" . "/s$RESET, Updates: $CYAN$updates_per_sec/s$RESET, " . 
+											"Deletes: $CYAN$deletes_per_sec" . "/s$RESET, Inserts: $CYAN$inserts_per_sec/s$RESET$pad_space\n" .
+											"                   Connects: $CYAN$connections_per_sec$RESET$pad_space\n");
 			$lines_left--;
 		}
 
