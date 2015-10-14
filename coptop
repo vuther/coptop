@@ -19,7 +19,7 @@ $config  = array(
 	'show_idle'      => 0,
 	'reverse_sort'   => 1,
 	'resolve_ip'     => 1,
-	'ansi_refresh'   => 0,
+	'ansi_refresh'   => 1,
 	'user_filter'    => '',
 	'db_filter'      => '',
 	'host_filter'    => '',
@@ -888,7 +888,7 @@ function read_key($key) {
 		case 'z':
 			system('clear');
 
-			print $BOLD . "IPs and their corresponding hostnames that have connected since start$RESET\n\n";
+			print $BOLD . "IPs and their corresponding hostnames that have connected since start of coptop$RESET\n\n";
 			foreach ($hosts as $ip => $host) {
 				if (!$ip || !$host) continue;
 				printf("%16s $CYAN=>$RESET %s\n", $ip, $host);
