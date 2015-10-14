@@ -889,6 +889,7 @@ function read_key($key) {
 			system('clear');
 
 			print $BOLD . "IPs and their corresponding hostnames that have connected since start of coptop$RESET\n\n";
+			asort($hosts);
 			foreach ($hosts as $ip => $host) {
 				if (!$ip || !$host) continue;
 				printf("%16s $CYAN=>$RESET %s\n", $ip, $host);
