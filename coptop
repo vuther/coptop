@@ -309,11 +309,10 @@ while (1) {
 		$help_section_pad = $cols - 20;
 		$underline_pad    = str_repeat(" ", $cols);
 
-		$pad_space = '';
+		$pad_space  = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
+		$pad_space2 = str_repeat(" " , 50); // This is an ansi refresh hack to fix ghost characters...
 		if ($config['ansi_refresh']) {
 			print($ansi_chars['CURSOR_TO_START']);
-			$pad_space  = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
-			$pad_space2 = str_repeat(" " , 50); // This is an ansi refresh hack to fix ghost characters...
 		} 
 
 		printf("%-$help_section_pad" . "s", "Monitoring database server$MAGENTA " . $config['server'] . $RESET . " ($db_fork v$db_version)");
