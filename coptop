@@ -108,7 +108,7 @@ if (isset($opts['help'])) helpme('--help');
 
 // Use my.cnf client's information if available
 if (isset($_SERVER['HOME']) && file_exists($_SERVER['HOME'] . "/.my.cnf")) {
-	$mycnf = parse_ini_file($_SERVER['HOME'] . "/.my.cnf", true);
+	$mycnf = parse_ini_file($_SERVER['HOME'] . "/.my.cnf", true, INI_SCANNER_RAW);
 
 	if (isset($mycnf['client']['user']) && !isset($opts['u'])) {
 		$config['user'] = $mycnf['client']['user'];
@@ -199,6 +199,7 @@ $old_cols       = '';
 $old_lines      = '';
 $first_clear    = 0;
 $master_binary  = 1;
+$hosts          = array();
 //////////////////////////////////
 //          Main Loop           //
 //////////////////////////////////
@@ -322,7 +323,7 @@ while (1) {
 		if ($config['delay'] == 1) {
 			printf("%-18s %s", "Analytics", "Selects:  $CYAN$selects_per_sec" . "/s$RESET, Updates: $CYAN$updates_per_sec/s$RESET, " . 
 											"Deletes: $CYAN$deletes_per_sec" . "/s$RESET, Inserts: $CYAN$inserts_per_sec/s$RESET$pad_space\n" .
-											"                   Connects: $CYAN$connections_per_sec$RESET$pad_space\n");
+											"                   Connects: $CYAN$connections_per_sec$RESET, Host Cache: $CYAN" . count($hosts) . "$RESET$pad_space\n");
 			$lines_left -= 2;
 		}
 
@@ -355,26 +356,41 @@ while (1) {
 			);
 
 		if ($slave_status) {
-			if ($config['resolve_ip']) {
-				if (filter_var($slave_status['Master_Host'] , FILTER_VALIDATE_IP)) {
-					$slave_status['Master_Host'] = explode('.', gethostbyaddr($slave_status['Master_Host']));
-					$slave_status['Master_Host'] = $slave_status['Master_Host'][0];
-				} else {
-					$slave_status['Master_Host'] = explode('.', $slave_status['Master_Host']);
-					$slave_status['Master_Host'] = $slave_status['Master_Host'][0];
+			// Add master host to host array for caching
+			if (filter_var($slave_status['Master_Host'], FILTER_VALIDATE_IP)) {
+				if (!array_key_exists($slave_status['Master_Host'], $hosts)) {
+					$host = gethostbyaddr($slave_status['Master_Host']);
+
+					if (filter_var($host, FILTER_VALIDATE_IP)) {
+						$hosts[$slave_status['Master_Host']] = $host;
+					} else {
+						$host = explode(".", $host);
+						$hosts[$slave_status['Master_Host']] = $host[0];
+					}
 				}
 			} else {
-				if (!filter_var($slave_status['Master_Host'] , FILTER_VALIDATE_IP)) {
-					$slave_status['Master_Host'] = gethostbyname($slave_status['Master_Host']);
+				if (!in_array($slave_status['Master_Host'], $hosts)) {
+					$hosts[gethostbyname($slave_status['Master_Host'])] = $slave_status['Master_Host'];
+				}
+			}
+
+			// Output master host in either host or IP form
+			if ($config['resolve_ip']) {
+				if (filter_var($slave_status['Master_Host'], FILTER_VALIDATE_IP)) {
+					$slave_status['Master_Host'] = $hosts[$slave_status['Master_Host']];
+				}
+			} else {
+				if (!filter_var($slave_status['Master_Host'], FILTER_VALIDATE_IP)) {
+					$slave_status['Master_Host'] = array_search($slave_status['Master_Host'], $hosts);
 				}
 			}
 
 			print("\n");
+			print("Slaved to Master:  $RESET$CYAN" . $slave_status['Master_Host'] . "$pad_space$RESET\n");
 			print(sprintf("%-30s", "Slave IO: $RESET$CYAN") . sprintf("%-9s", $slave_status['Slave_IO_Running']) . "$RESET" . "Reading Log:    " .
-				"$RESET$CYAN " . $slave_status['Master_Log_File'] . "$RESET (position: $CYAN" . $slave_status['Exec_Master_Log_Pos'] . "$RESET)$pad_space\n");
+				"$RESET$CYAN " . $slave_status['Master_Log_File'] . "$RESET (master: $CYAN" . $slave_status['Exec_Master_Log_Pos'] . " $RESET- slave: $CYAN" . $slave_status['Read_Master_Log_Pos'] . "$RESET)$pad_space\n");
 			print(sprintf("%-30s", "Slave SQL: $RESET$CYAN") .  sprintf("%-9s", $slave_status['Slave_SQL_Running']) . "$RESET" . "Seconds Behind:  " .
 				"$RESET$CYAN" . $slave_status['Seconds_Behind_Master'] . "$pad_space$RESET\n");
-			print("Slaved to Master:  $RESET$CYAN" . $slave_status['Master_Host'] . "$pad_space$RESET\n");
 			$lines_left -= 4;
 		}
 
@@ -414,24 +430,35 @@ while (1) {
 		$id = $thread['Id'];
 
 		// Hostname/IP format
-		$thread['Host']   = explode(":", $thread['Host']); // Remove port from hostname/IP
-		$thread['Host']   = $thread['Host'][0];
-		$thread_using_ip  = 0;
+		$thread['Host'] = explode(":", $thread['Host']); // Remove port from hostname/IP
+		$thread['Host'] = $thread['Host'][0];
 
+		// Get host/IP information into array
 		if (filter_var($thread['Host'], FILTER_VALIDATE_IP)) {
-			$thread_using_ip = 1;
-		}
-		if ($config['resolve_ip']) {
-			if ($thread_using_ip) {
-				$thread['Host'] = gethostbyaddr($thread['Host']);
-			}
-			if (!filter_var($thread['Host'], FILTER_VALIDATE_IP)) {
-				$thread['Host'] = explode(".", $thread['Host']);
-				$thread['Host'] = $thread['Host'][0];
+			if (!array_key_exists($thread['Host'], $hosts)) {
+				$host = gethostbyaddr($thread['Host']);
+
+				if (filter_var($host, FILTER_VALIDATE_IP)) {
+					$hosts[$thread['Host']] = $host;
+				} else {
+					$host = explode(".", $host);
+					$hosts[$thread['Host']] = $host[0];
+				}
 			}
 		} else {
-			if (!$thread_using_ip) {
-				$thread['Host'] = gethostbyname($thread['Host']);
+			if (!in_array($thread['Host'], $hosts)) {
+				$hosts[gethostbyname($thread['Host'])] = $thread['Host'];
+			}
+		}
+
+		// Set user's host to IP or hostname format depending if resolve_ip is on
+		if ($config['resolve_ip']) {
+			if (filter_var($thread['Host'], FILTER_VALIDATE_IP)) {
+				$thread['Host'] = $hosts[$thread['Host']];
+			}
+		} else {
+			if (!filter_var($thread['Host'], FILTER_VALIDATE_IP)) {
+				$thread['Host'] = array_search($thread['Host'], $hosts);
 			}
 		}
 
@@ -591,7 +618,7 @@ while (1) {
 //          Functions           //
 //////////////////////////////////
 function read_key($key) {
-	global $connection, $thread_data, $config, $BOLD_CYAN, $CYAN, $RESET, $RED, $UNDERLINE, $BOLD, $delay_microseconds, $commands;
+	global $connection, $thread_data, $config, $BOLD_CYAN, $CYAN, $RESET, $RED, $UNDERLINE, $BOLD, $delay_microseconds, $commands, $hosts;
 	$run_command = 0;
 	$found       = 0;
 
@@ -858,6 +885,18 @@ function read_key($key) {
 			pause();
 			$run_command = 1;
 			break;
+		case 'z':
+			system('clear');
+
+			print $BOLD . "IPs and their corresponding hostnames that have connected since start$RESET\n\n";
+			foreach ($hosts as $ip => $host) {
+				if (!$ip || !$host) continue;
+				printf("%16s $CYAN=>$RESET %s\n", $ip, $host);
+			}
+
+			pause();
+			$run_command = 1;
+			break;
 	}
 
 	// Sleep and return 1 if a command was run to reset the keypress loop
@@ -1073,7 +1112,7 @@ function helpme($command) {
 		printf("$BOLD%-9s$RESET %s", "     t", "Filter by minimum time\n");
 		printf("$BOLD%-9s$RESET %s", "     u", "Filter by user\n");
 		printf("$BOLD%-9s$RESET %s", "     v", "Display some important variables\n");
-
+		printf("$BOLD%-9s$RESET %s", "     z", "Display the host cache\n");
 		pause();
 	}
 }
