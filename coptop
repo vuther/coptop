@@ -169,7 +169,7 @@ $version_comment       = strtolower($variables['version_comment']);
 $use_processlist_query = 0;
 
 // Determine if processlist query should be used based on mysql version
-if ($short_version == '5.0' || $short_version == '5.1') {
+if ($short_version == '5.0' || $short_version == '5.1' || !$config['header']) {
 	$use_processlist_query = 1;
 }
 
@@ -213,82 +213,6 @@ while (1) {
 		system('clear');
 	}
 
-	$old_cols   = $cols;
-	$old_lines  = $lines;
-	$lines_left = $lines - 1;
-
-	// Save old status data
-	$old_status = $status;
-
-	// Get our statuses in arrays
-	$status        = execute_query($commands['status'], 1);
-	$slave_status  = execute_query($commands['slave'], 2);
-	if ($master_binary) {
-		$master_status = execute_query($commands['master'], 2);
-		if (!$master_status) $master_binary = 0;
-	}
-
-	//////////////////////////////////
-	//    Calculations for Header   //
-	//////////////////////////////////
-
-	// Uptime of server
-	$dtF    = new DateTime("@0");
-	$dtT    = new DateTime("@" . $status['Uptime']);
-	$uptime = $dtF->diff($dtT)->format('%a days, %h hours, %i minutes and %s seconds');
-
-	// Calculate DML Queries Per Second
-	if (isset($old_status['Queries'])) {
-		$selects_per_sec = $status['Com_select'] - $old_status['Com_select'];
-		$updates_per_sec = $status['Com_update'] - $old_status['Com_update'];
-		$inserts_per_sec = $status['Com_insert'] - $old_status['Com_insert'];
-		$deletes_per_sec = $status['Com_delete'] - $old_status['Com_delete'];
-	} else {
-		$selects_per_sec = 0;
-		$updates_per_sec = 0;
-		$inserts_per_sec = 0;
-		$deletes_per_sec = 0;
-	}
-
-	// MyISAM Efficiency
-	if ($status['Key_reads'] && $status['Key_read_requests']) {
-		$myisam_hit_rate = sprintf("%.2f%%", (100 - ($status['Key_reads'] / $status['Key_read_requests']) * 100));
-	} else {
-		$myisam_hit_rate = "N/A";
-	}
-
-	// InnoDB Efficiency
-	if ($status['Innodb_buffer_pool_read_requests'] && $status['Innodb_buffer_pool_reads']) {
-		$innodb_hit_rate = sprintf("%.2f%%", (100 - ($status['Innodb_buffer_pool_reads'] / ($status['Innodb_buffer_pool_read_requests'])) * 100));
-	} else {
-		$innodb_hit_rate = "N/A";
-	}
-
-	// Calculate tmp tables per second
-	if (isset($old_status['Created_tmp_disk_tables'])) {
-		$tmp_tables_per_sec      = $status['Created_tmp_tables']      - $old_status['Created_tmp_tables'];
-		$tmp_disk_tables_per_sec = $status['Created_tmp_disk_tables'] - $old_status['Created_tmp_disk_tables'];
-	} else {
-		$tmp_tables_per_sec      = 0;
-		$tmp_disk_tables_per_sec = 0;
-	}
-
-	// Calculate connections per second
-	if (isset($old_status['Connections'])) {
-		$connections_per_sec  = ($status['Connections'] - $old_status['Connections']) . "/s";
-	} else {
-		$connections_per_sec  = 0;
-	}
-
-	// If delay isn't set to 1 then don't show per second stats
-	if ($config['delay'] == 1) {
-		$tmp_tables_memory = "$RESET($CYAN$tmp_tables_per_sec/s$RESET)";
-		$tmp_tables_disk   = "$RESET($CYAN$tmp_disk_tables_per_sec/s$RESET)";
-	} else {
-		$tmp_tables_memory = '';
-		$tmp_tables_disk   = '';
-	}
-
 	// ANSI characters for smoother refresh
 	if ($config['ansi_refresh']) {
 		print($ansi_chars['EEL']);
@@ -302,10 +226,86 @@ while (1) {
 	}
 	print($ansi_chars['HIDE_CURSOR']);
 
-	//////////////////////////////////
-	//     Print Header Section     //
-	//////////////////////////////////
+	$old_cols   = $cols;
+	$old_lines  = $lines;
+	$lines_left = $lines - 1;
+
 	if ($config['header']) {
+		// Save old status data
+		$old_status = $status;
+
+		// Get our statuses in arrays
+		$status        = execute_query($commands['status'], 1);
+		$slave_status  = execute_query($commands['slave'], 2);
+		if ($master_binary) {
+			$master_status = execute_query($commands['master'], 2);
+			if (!$master_status) $master_binary = 0;
+		}
+
+		//////////////////////////////////
+		//    Calculations for Header   //
+		//////////////////////////////////
+
+		// Uptime of server
+		$dtF    = new DateTime("@0");
+		$dtT    = new DateTime("@" . $status['Uptime']);
+		$uptime = $dtF->diff($dtT)->format('%a days, %h hours, %i minutes and %s seconds');
+
+		// Calculate DML Queries Per Second
+		if (isset($old_status['Queries'])) {
+			$selects_per_sec = $status['Com_select'] - $old_status['Com_select'];
+			$updates_per_sec = $status['Com_update'] - $old_status['Com_update'];
+			$inserts_per_sec = $status['Com_insert'] - $old_status['Com_insert'];
+			$deletes_per_sec = $status['Com_delete'] - $old_status['Com_delete'];
+		} else {
+			$selects_per_sec = 0;
+			$updates_per_sec = 0;
+			$inserts_per_sec = 0;
+			$deletes_per_sec = 0;
+		}
+
+		// MyISAM Efficiency
+		if ($status['Key_reads'] && $status['Key_read_requests']) {
+			$myisam_hit_rate = sprintf("%.2f%%", (100 - ($status['Key_reads'] / $status['Key_read_requests']) * 100));
+		} else {
+			$myisam_hit_rate = "N/A";
+		}
+
+		// InnoDB Efficiency
+		if ($status['Innodb_buffer_pool_read_requests'] && $status['Innodb_buffer_pool_reads']) {
+			$innodb_hit_rate = sprintf("%.2f%%", (100 - ($status['Innodb_buffer_pool_reads'] / ($status['Innodb_buffer_pool_read_requests'])) * 100));
+		} else {
+			$innodb_hit_rate = "N/A";
+		}
+
+		// Calculate tmp tables per second
+		if (isset($old_status['Created_tmp_disk_tables'])) {
+			$tmp_tables_per_sec      = $status['Created_tmp_tables']      - $old_status['Created_tmp_tables'];
+			$tmp_disk_tables_per_sec = $status['Created_tmp_disk_tables'] - $old_status['Created_tmp_disk_tables'];
+		} else {
+			$tmp_tables_per_sec      = 0;
+			$tmp_disk_tables_per_sec = 0;
+		}
+
+		// Calculate connections per second
+		if (isset($old_status['Connections'])) {
+			$connections_per_sec  = ($status['Connections'] - $old_status['Connections']) . "/s";
+		} else {
+			$connections_per_sec  = 0;
+		}
+
+		// If delay isn't set to 1 then don't show per second stats
+		if ($config['delay'] == 1) {
+			$tmp_tables_memory = "$RESET($CYAN$tmp_tables_per_sec/s$RESET)";
+			$tmp_tables_disk   = "$RESET($CYAN$tmp_disk_tables_per_sec/s$RESET)";
+		} else {
+			$tmp_tables_memory = '';
+			$tmp_tables_disk   = '';
+		}
+
+		//////////////////////////////////
+		//     Print Header Section     //
+		//////////////////////////////////
 		$help_section_pad = $cols - 20;
 		$underline_pad    = str_repeat(" ", $cols);
 
@@ -400,6 +400,7 @@ while (1) {
 			$lines_left -= 2;
 
 			if ($servers_slaved) {
+				sort($servers_slaved);
 				print("Slave Server(s):   $CYAN" .  implode(", ", $servers_slaved) . "$pad_space2\n");
 				$lines_left--;
 			}
@@ -468,12 +469,11 @@ while (1) {
 
 		// Remove newline chars
 		$thread['Info'] = trim(preg_replace('/\s+/', ' ', $thread['Info']));
-
-		// Format final time
+		
 		$seconds = intval($thread['Time'] / 1000);
-
 		if ($use_processlist_query) {
 			$formatted_time = $thread['Time'] . "s";
+			$seconds = intval($thread['Time']);
 		} else if ($seconds >= 1) {
 			$formatted_time = sprintf("%s", $seconds) . "s";
 		} else {
