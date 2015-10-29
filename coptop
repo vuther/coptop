@@ -213,6 +213,10 @@ while (1) {
 		system('clear');
 	}
 
+	$old_cols   = $cols;
+	$old_lines  = $lines;
+	$lines_left = $lines - 1;
+	
 	// ANSI characters for smoother refresh
 	if ($config['ansi_refresh']) {
 		print($ansi_chars['EEL']);
@@ -226,9 +230,20 @@ while (1) {
 	}
 	print($ansi_chars['HIDE_CURSOR']);
 
-	$old_cols   = $cols;
-	$old_lines  = $lines;
-	$lines_left = $lines - 1;
+	// Padding stuff for ANSI refresh
+	$help_section_pad = $cols - 20;
+	$underline_pad    = str_repeat(" ", $cols);
+	$pad_space  = '';
+	$pad_space2 = '';
+	if ($config['ansi_refresh']) {
+		print($ansi_chars['CURSOR_TO_START']);
+		$pad_space  = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
+		$pad_space2 = str_repeat(" " , 50); // This is an ansi refresh hack to fix ghost characters...
+	} 
+
+	printf("%-$help_section_pad" . "s", "Monitoring database server$MAGENTA " . $config['server'] . $RESET . " ($db_fork v$db_version)");
+	print("$BOLD_CYAN coptop $version$RESET - Press ? for help$RESET\n");
+	$lines_left--;
 
 	if ($config['header']) {
 		// Save old status data
@@ -306,19 +321,6 @@ while (1) {
 		//////////////////////////////////
 		//     Print Header Section     //
 		//////////////////////////////////
-		$help_section_pad = $cols - 20;
-		$underline_pad    = str_repeat(" ", $cols);
-
-		$pad_space  = '';
-		$pad_space2 = '';
-		if ($config['ansi_refresh']) {
-			print($ansi_chars['CURSOR_TO_START']);
-			$pad_space  = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
-			$pad_space2 = str_repeat(" " , 50); // This is an ansi refresh hack to fix ghost characters...
-		} 
-
-		printf("%-$help_section_pad" . "s", "Monitoring database server$MAGENTA " . $config['server'] . $RESET . " ($db_fork v$db_version)");
-		print("$BOLD_CYAN coptop $version$RESET - Press ? for help$RESET\n");
 		printf("%-18s %s", "MySQL Uptime", "$CYAN$uptime$RESET$pad_space\n");
 
 		if ($config['delay'] == 1) {
@@ -389,10 +391,17 @@ while (1) {
 			print("\n");
 			print("Slaved to Master:  $RESET$CYAN" . $slave_status['Master_Host'] . "$pad_space$RESET\n");
 			print(sprintf("%-30s", "Slave IO: $RESET$CYAN") . sprintf("%-9s", $slave_status['Slave_IO_Running']) . "$RESET" . "Reading Log:    " .
-				"$RESET$CYAN " . $slave_status['Master_Log_File'] . "$RESET (master: $CYAN" . $slave_status['Exec_Master_Log_Pos'] . " $RESET- slave: $CYAN" . $slave_status['Read_Master_Log_Pos'] . "$RESET)$pad_space\n");
+				" IO: $RESET$CYAN" . $slave_status['Master_Log_File'] . "$RESET ($CYAN" . $slave_status['Read_Master_Log_Pos'] . "$RESET) - SQL: $CYAN" . $slave_status['Relay_Master_Log_File'] . "$RESET ($CYAN" . $slave_status['Exec_Master_Log_Pos'] . "$RESET)$pad_space\n");
 			print(sprintf("%-30s", "Slave SQL: $RESET$CYAN") .  sprintf("%-9s", $slave_status['Slave_SQL_Running']) . "$RESET" . "Seconds Behind:  " .
 				"$RESET$CYAN" . $slave_status['Seconds_Behind_Master'] . "$pad_space$RESET\n");
-			$lines_left -= 4;
+
+			if ($slave_status['Last_Error']) {
+				print(sprintf("%-30s", "Slave Error: $RESET$CYAN") . sprintf("%-9s", $slave_status['Last_Error']) . "$RESET\n");
+			} else {
+				print(sprintf("%-30s", "Slave Error: $RESET$CYAN") . sprintf("%-9s", "None$RESET\n"));
+			}
+
+			$lines_left -= 5;
 		}
 
 		if ($master_status) {
@@ -407,9 +416,10 @@ while (1) {
 		}
 
 		print("$CYAN$UNDERLINE$underline_pad$RESET\n\n");
-		$lines_left -= 9;
+		$lines_left -= 8;
 	} else {
-		if ($config['ansi_refresh']) print($ansi_chars['CURSOR_TO_START']);
+		print "\n";
+		$lines_left--;
 	}
 
 	$servers_slaved = array(); // Reset it
@@ -952,10 +962,14 @@ function execute_query($query, $type) {
 				$results[$row['Variable_name']] = $row['Value'];
 			}
 		} else if ($type == 2) {
-			$results = $data->fetch_all(MYSQLI_ASSOC);
+			while ($row = $data->fetch_assoc()) { 
+				$results[] = $row;
+			}
 			if ($results) $results = call_user_func_array('array_merge', $results); // Flatten out the array
 		} else if ($type == 3) {
-			$results = $data->fetch_all(MYSQLI_ASSOC);
+			while ($row = $data->fetch_assoc()) {
+				$results[] = $row;
+			}
 		}
 	}
 
