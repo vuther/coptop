@@ -5,6 +5,7 @@
 	Created:  July 06, 2015
 	GitHub:   https://github.com/vuther/coptop
 */
+error_reporting(E_ERROR | E_PARSE);
 
 //////////////////////////////////
 //       Defaults Settings      //
@@ -157,7 +158,7 @@ if (isset($opts['prompt'])) {
 $connection = new mysqli($config['server'], $config['user'], $config['password'], '', $config['port']);
  
 if ($connection->connect_error) {
-	exit($RED . "Database connection failed: " . $connection->connect_error . "$RESET\n");
+	exit($RED . "Database connection failed to " . $config['server'] . ": " . $connection->connect_error . "$RESET\n");
 }
 
 //////////////////////////////////
@@ -233,8 +234,8 @@ while (1) {
 	// Padding stuff for ANSI refresh
 	$help_section_pad = $cols - 20;
 	$underline_pad    = str_repeat(" ", $cols);
-	$pad_space  = '';
-	$pad_space2 = '';
+	$pad_space        = '';
+	$pad_space2       = '';
 	if ($config['ansi_refresh']) {
 		print($ansi_chars['CURSOR_TO_START']);
 		$pad_space  = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
@@ -478,7 +479,8 @@ while (1) {
 		if ($thread['Command'] == 'Binlog Dump') $servers_slaved[] = $thread['Host'];
 
 		// Remove newline chars
-		$thread['Info'] = trim(preg_replace('/\s+/', ' ', $thread['Info']));
+		$raw_info = $thread['Info'];
+		$thread['Info'] = preg_replace('/\s+/', ' ', $thread['Info']);
 		
 		$seconds = intval($thread['Time'] / 1000);
 		if ($use_processlist_query) {
@@ -492,9 +494,10 @@ while (1) {
 
 		// Save thread data to array
 		$thread_data[$id] = array(
-			"user"    => $thread['User'],    "host"           => $thread['Host'], "db"      => $thread['db'], 
-			"command" => $thread['Command'], "time"           => $thread['Time'], "info"    => $thread['Info'],
-			"state"   => $thread['State'],   "formatted_time" => $formatted_time, "seconds" => $seconds
+			"user"     => $thread['User'],    "host"           => $thread['Host'], "db"      => $thread['db'], 
+			"command"  => $thread['Command'], "time"           => $thread['Time'], "info"    => $thread['Info'],
+			"state"    => $thread['State'],   "formatted_time" => $formatted_time, "seconds" => $seconds,
+			"raw_info" => $raw_info
 		);
 
 		// Save and notify of slow queries
@@ -684,9 +687,9 @@ function read_key($key) {
 
 				if ($thread_data[$input]['info']) {
 					$connection->query("USE " . $thread_data[$input]['db']);
-					$results = execute_query("EXPLAIN " . $thread_data[$input]['info'], 3);
+					$results = execute_query("EXPLAIN " . $thread_data[$input]['raw_info'], 3);
 
-					print("EXPLAIN " .  $thread_data[$input]['info'] . "\n\n");
+					print("EXPLAIN " .  $thread_data[$input]['raw_info'] . "\n\n");
 					foreach ($results as $thread) {
 						print "$BOLD_CYAN****************** row $counter ******************$RESET\n";
 						foreach ($thread as $key => $value) {
