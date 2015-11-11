@@ -61,25 +61,25 @@ $BOLD_CYAN  = $CSI . "1;36m";
 $BOLD       = $CSI . "1m";
 $UNDERLINE  = $CSI . "4m";
 $ansi_chars = array(
-	'CURSOR_TO_START' => $CSI . "H",    // Start the cursor 
+	'CURSOR_TO_START' => $CSI . "H",    // Start the cursor
 	'EEL'             => $CSI . "K",    // Clear line from cursor right
 	'EEB'             => $CSI . "J",    // Clear screen from cursor down
 	'HIDE_CURSOR'     => $CSI . "?25l", // Hide cursor
 	'SHOW_CURSOR'     => $CSI . "?25h"  // Show cursor
-);   
+);
 
 //////////////////////////////////
 //  Notify user of new version  //
 //////////////////////////////////
-$master_version = trim(file_get_contents('https://raw.githubusercontent.com/vuther/coptop/master/version')); 
+$master_version = trim(file_get_contents('https://raw.githubusercontent.com/vuther/coptop/master/version'));
 $version        = "v1.2";
 
 if ($master_version > $version) {
-	$message = $RED . "Your version: $RESET$version$RESET\n" . 
-		$GREEN . "New version:  $RESET$master_version$RESET\n\n" . 
+	$message = $RED . "Your version: $RESET$version$RESET\n" .
+		$GREEN . "New version:  $RESET$master_version$RESET\n\n" .
 		"There's a new version of$BOLD_CYAN coptop$RESET available! Please receive the latest and greatest by either:\n" .
-		"   - Downloading from https://github.com/vuther/coptop\n" . 
-		"   - git pull\n\n" . 
+		"   - Downloading from https://github.com/vuther/coptop\n" .
+		"   - git pull\n\n" .
 		$CYAN . "Press any key to resume$RESET\n";
 
 	pause($message);
@@ -92,7 +92,7 @@ if (!function_exists('mysqli_connect')) {
 	exit($RED . "You do not have mysqli installed. Install it via apt-get install php5-mysqlnd$RESET\n");
 }
 if (!function_exists('readline_callback_handler_install')) {
-	exit($RED . "Your PHP version was not compiled with readline! It has to be compiled " . 
+	exit($RED . "Your PHP version was not compiled with readline! It has to be compiled " .
 				"with readline for coptop to work.$RESET\n");
 }
 if(!ini_get('date.timezone')) {
@@ -102,7 +102,7 @@ if(!ini_get('date.timezone')) {
 //////////////////////////////////
 //   Command line parameters    //
 //////////////////////////////////
-$opts = getopt('u:p:h:P:', array('delay:', 'idle:', 'sort:', 'resolve:', 'ansi:', 'header:', 'notify:', 
+$opts = getopt('u:p:h:P:', array('delay:', 'idle:', 'sort:', 'resolve:', 'ansi:', 'header:', 'notify:',
 	                             'limit:', 'help', 'prompt'));
 
 if (isset($opts['help'])) helpme('--help');
@@ -156,7 +156,7 @@ if (isset($opts['prompt'])) {
 //     Connect to database      //
 //////////////////////////////////
 $connection = new mysqli($config['server'], $config['user'], $config['password'], '', $config['port']);
- 
+
 if ($connection->connect_error) {
 	exit($RED . "Database connection failed to " . $config['server'] . ": " . $connection->connect_error . "$RESET\n");
 }
@@ -193,14 +193,16 @@ $db_version = explode('-', $variables['version']);
 $db_version = $db_version[0];
 
 // Clear screen and create some variables
-$status         = array();
-$servers_slaved = array();
-$slow_queries   = array();
-$old_cols       = '';
-$old_lines      = '';
-$first_clear    = 0;
-$master_binary  = 1;
-$hosts          = array();
+$status           = array();
+$servers_slaved   = array();
+$slow_queries     = array();
+$old_cols         = '';
+$old_lines        = '';
+$first_clear      = 0;
+$master_binary    = 1;
+$hosts            = array();
+$last_slave_error = '';
+
 //////////////////////////////////
 //          Main Loop           //
 //////////////////////////////////
@@ -217,7 +219,7 @@ while (1) {
 	$old_cols   = $cols;
 	$old_lines  = $lines;
 	$lines_left = $lines - 1;
-	
+
 	// ANSI characters for smoother refresh
 	if ($config['ansi_refresh']) {
 		print($ansi_chars['EEL']);
@@ -240,7 +242,7 @@ while (1) {
 		print($ansi_chars['CURSOR_TO_START']);
 		$pad_space  = str_repeat(" " , 10); // This is an ansi refresh hack to fix ghost characters...
 		$pad_space2 = str_repeat(" " , 50); // This is an ansi refresh hack to fix ghost characters...
-	} 
+	}
 
 	printf("%-$help_section_pad" . "s", "Monitoring database server$MAGENTA " . $config['server'] . $RESET . " ($db_fork v$db_version)");
 	print("$BOLD_CYAN coptop $version$RESET - Press ? for help$RESET\n");
@@ -258,6 +260,7 @@ while (1) {
 			if (!$master_status) $master_binary = 0;
 		}
 
+		if ($config['ansi_refresh'] && $last_slave_error != $slave_status['Last_Error']) system('clear');
 		//////////////////////////////////
 		//    Calculations for Header   //
 		//////////////////////////////////
@@ -325,37 +328,37 @@ while (1) {
 		printf("%-18s %s", "MySQL Uptime", "$CYAN$uptime$RESET$pad_space\n");
 
 		if ($config['delay'] == 1) {
-			printf("%-18s %s", "Analytics", "Selects:  $CYAN$selects_per_sec" . "/s$RESET, Updates: $CYAN$updates_per_sec/s$RESET, " . 
+			printf("%-18s %s", "Analytics", "Selects:  $CYAN$selects_per_sec" . "/s$RESET, Updates: $CYAN$updates_per_sec/s$RESET, " .
 											"Deletes: $CYAN$deletes_per_sec" . "/s$RESET, Inserts: $CYAN$inserts_per_sec/s$RESET$pad_space\n" .
 											"                   Connects: $CYAN$connections_per_sec$RESET$pad_space\n");
 			$lines_left -= 2;
 		}
 
 		print(
-			sprintf("%-31s", "\nInnoDB Efficiency: $RESET$CYAN") . sprintf("%-9s", $innodb_hit_rate) . "$RESET" . 
-			sprintf("%-28s", "Open Tables: $RESET$CYAN") . sprintf("%-9s", $status['Open_tables']) . "$RESET" . 
+			sprintf("%-31s", "\nInnoDB Efficiency: $RESET$CYAN") . sprintf("%-9s", $innodb_hit_rate) . "$RESET" .
+			sprintf("%-28s", "Open Tables: $RESET$CYAN") . sprintf("%-9s", $status['Open_tables']) . "$RESET" .
 			sprintf("%-32s", "Aborted Clients: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_clients']) . "$RESET$pad_space\n"
 			);
 
 		print(
-			sprintf("%-30s", "MyISAM Efficiency: $RESET$CYAN") . sprintf("%-9s", $myisam_hit_rate) . "$RESET" . 
-			sprintf("%-28s", "Opened Tables: $RESET$CYAN") . sprintf("%-9s", $status['Opened_tables']) . "$RESET" . 
+			sprintf("%-30s", "MyISAM Efficiency: $RESET$CYAN") . sprintf("%-9s", $myisam_hit_rate) . "$RESET" .
+			sprintf("%-28s", "Opened Tables: $RESET$CYAN") . sprintf("%-9s", $status['Opened_tables']) . "$RESET" .
 			sprintf("%-26s", "Aborted Connections: $RESET$CYAN") . sprintf("%-9s", $status['Aborted_connects']) . "$RESET$pad_space\n"
 			);
 
 		$tmp_tables_space = strlen($status['Created_tmp_tables']) + 1;
 
 		print(
-			sprintf("%-30s", "Threads Connected: $RESET$CYAN") . sprintf("%-9s", $status['Threads_connected']) . "$RESET" . 
-			sprintf("%-28s", "Threads Created: $RESET$CYAN") . sprintf("%-9s", $status['Threads_created']) . "$RESET" . 
-			sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-$tmp_tables_space" . "s", $status['Created_tmp_tables']) . 
+			sprintf("%-30s", "Threads Connected: $RESET$CYAN") . sprintf("%-9s", $status['Threads_connected']) . "$RESET" .
+			sprintf("%-28s", "Threads Created: $RESET$CYAN") . sprintf("%-9s", $status['Threads_created']) . "$RESET" .
+			sprintf("%-32s", "Tmp Tables Memory: $RESET$CYAN") . sprintf("%-$tmp_tables_space" . "s", $status['Created_tmp_tables']) .
 			"$RESET$tmp_tables_memory$pad_space\n"
 			);
 
 		print(
-			sprintf("%-30s", "Threads Running: $RESET$CYAN") . sprintf("%-9s", $status['Threads_running']) . "$RESET" . 
-			sprintf("%-28s", "Threads Cached: $RESET$CYAN") . sprintf("%-9s", $status['Threads_cached']) . "$RESET" . 
-			sprintf("%-32s", "Tmp Tables Disk: $RESET$CYAN") . sprintf("%-$tmp_tables_space" . "s", $status['Created_tmp_disk_tables']) . 
+			sprintf("%-30s", "Threads Running: $RESET$CYAN") . sprintf("%-9s", $status['Threads_running']) . "$RESET" .
+			sprintf("%-28s", "Threads Cached: $RESET$CYAN") . sprintf("%-9s", $status['Threads_cached']) . "$RESET" .
+			sprintf("%-32s", "Tmp Tables Disk: $RESET$CYAN") . sprintf("%-$tmp_tables_space" . "s", $status['Created_tmp_disk_tables']) .
 			"$RESET$tmp_tables_disk$pad_space\n"
 			);
 
@@ -402,6 +405,8 @@ while (1) {
 				print(sprintf("%-30s", "Slave Error: $RESET$CYAN") . sprintf("%-9s", "None$RESET\n"));
 			}
 
+			$last_slave_error = $slave_status['Last_Error'];
+
 			$lines_left -= 5;
 		}
 
@@ -429,7 +434,7 @@ while (1) {
 	//  Processlist Thread Section  //
 	//////////////////////////////////
 	$thread_data = array();
-	
+
 	if ($use_processlist_query) {
 		$pl_sql = $commands['pl_query'];
 	} else {
@@ -481,7 +486,7 @@ while (1) {
 		// Remove newline chars
 		$raw_info = $thread['Info'];
 		$thread['Info'] = preg_replace('/\s+/', ' ', $thread['Info']);
-		
+
 		$seconds = intval($thread['Time'] / 1000);
 		if ($use_processlist_query) {
 			$formatted_time = $thread['Time'] . "s";
@@ -494,15 +499,15 @@ while (1) {
 
 		// Save thread data to array
 		$thread_data[$id] = array(
-			"user"     => $thread['User'],    "host"           => $thread['Host'], "db"      => $thread['db'], 
+			"user"     => $thread['User'],    "host"           => $thread['Host'], "db"      => $thread['db'],
 			"command"  => $thread['Command'], "time"           => $thread['Time'], "info"    => $thread['Info'],
 			"state"    => $thread['State'],   "formatted_time" => $formatted_time, "seconds" => $seconds,
 			"raw_info" => $raw_info
 		);
 
 		// Save and notify of slow queries
-		if ($thread['Command'] == 'Query' && $config['notify_email'] && $seconds >= $config['notify_limit'] 
-			&& $thread['User'] != 'backup' 
+		if ($thread['Command'] == 'Query' && $config['notify_email'] && $seconds >= $config['notify_limit']
+			&& $thread['User'] != 'backup'
 			&& $seconds < 99999999) {
 			if (!in_array($id, $slow_queries)) {
 				$slow_queries[] = $id;
@@ -551,9 +556,9 @@ while (1) {
 		if (!$lines_left) break;
 		if (in_array($thread['info'], $commands)) continue;
 		if ($thread['command'] == 'Binlog Dump' && !$config['show_idle']) continue;
-		if ($thread['command'] == 'Sleep' && !$config['show_idle']) continue; 
-		if ($thread['command'] != 'Query' && !$config['show_idle']) continue; 
-		if ($thread['command'] == 'Query' && !$thread['info']) continue; 
+		if ($thread['command'] == 'Sleep' && !$config['show_idle']) continue;
+		if ($thread['command'] != 'Query' && !$config['show_idle']) continue;
+		if ($thread['command'] == 'Query' && !$thread['info']) continue;
 		if ($config['user_filter'] && $thread['user'] != $config['user_filter']) continue;
 		if ($config['db_filter']   && $thread['db']   != $config['db_filter']) continue;
 		if ($config['host_filter'] && $thread['host'] != $config['host_filter']) continue;
@@ -568,11 +573,11 @@ while (1) {
 		}
 
 		// Determine thread color
-		if ($thread['command']  == 'Sleep' || 
-			$thread['command']  == 'Connect' || 
-			$thread['command']  == "Binlog Dump") { $color = $RESET; } 
-		else if ($thread['user'] == 'backup') { $color = $MAGENTA; } 
-		else if ($thread['seconds'] <= 0) { 
+		if ($thread['command']  == 'Sleep' ||
+			$thread['command']  == 'Connect' ||
+			$thread['command']  == "Binlog Dump") { $color = $RESET; }
+		else if ($thread['user'] == 'backup') { $color = $MAGENTA; }
+		else if ($thread['seconds'] <= 0) {
 			if ($thread['time'] <= 500) {
 				$color = $GREEN;
 			} else {
@@ -580,7 +585,7 @@ while (1) {
 			}
 		}
 		else if ($thread['seconds'] == 1) { $color = $YELLOW; }
-		else if ($thread['seconds'] >= 2) { $color = $RED; } 
+		else if ($thread['seconds'] >= 2) { $color = $RED; }
 
 		// Print thread
 		print($color);
@@ -596,7 +601,7 @@ while (1) {
 	// Print some ansi characters
 	if ($config['ansi_refresh']) print($ansi_chars['EEL'] . $ansi_chars['EEB']);
 	print($ansi_chars['SHOW_CURSOR']);
-	
+
 	//////////////////////////////////
 	//      Capture Key Press       //
 	//////////////////////////////////
@@ -632,7 +637,7 @@ while (1) {
 //          Functions           //
 //////////////////////////////////
 function read_key($key) {
-	global $connection, $thread_data, $config, $BOLD_CYAN, $CYAN, $RESET, $RED, $UNDERLINE, $BOLD, $delay_microseconds, $commands, $hosts;
+	global $connection, $thread_data, $config, $BOLD_CYAN, $CYAN, $RESET, $RED, $UNDERLINE, $BOLD, $delay_microseconds, $commands, $hosts, $slave_status;
 	$run_command = 0;
 	$found       = 0;
 
@@ -667,7 +672,7 @@ function read_key($key) {
 			foreach ($results as $key => $database) {
 				print($database['Database'] . "\n");
 			}
-			
+
 			pause();
 			$run_command = 1;
 			break;
@@ -725,7 +730,7 @@ function read_key($key) {
 		case 'i': // Hide/Show sleeping threads
 			if ($config['show_idle']) {
 				$config['show_idle']    = 0;
-				$config['reverse_sort'] = 1; 
+				$config['reverse_sort'] = 1;
 			} else {
 				$config['show_idle']    = 1;
 				$config['reverse_sort'] = 0;
@@ -857,6 +862,23 @@ function read_key($key) {
 
 			$run_command = 1;
 			break;
+		case 'S': // SET GLOBAL sql_slave_skip_counter = 1
+			$input = read_stdin("Are you sure you want to execute SET GLOBAL sql_slave_skip_counter = 1? (y/n): ");
+
+			if ($input == 'y') {
+				if ($slave_status['Slave_SQL_Running'] == 'Yes') {
+					print($RED . "SQL slave thread is currently running!$RESET");
+					sleep(1);
+				} else {
+					execute_query("SET GLOBAL sql_slave_skip_counter = 1", 0);
+					execute_query("START SLAVE", 0);
+					print($CYAN . "Executed SET GLOBAL sql_slave_skip_counter = 1!$RESET");
+					sleep(1);
+				}
+			}
+
+			$run_command = 1;
+			break;
 		case 't': // Filter by time
 			$input = read_stdin("Minimum time to display in seconds: ");
 
@@ -878,13 +900,13 @@ function read_key($key) {
 
 			$variables    = execute_query($commands['variables'], 1);
 			$special_list = array(
-				'binlog_format', 'character_set_server', 'collation_server', 'innodb_checksum_algorithm', 
-				'innodb_flush_method', 'innodb_file_format','innodb_file_format_max', 'innodb_file_per_table', 
-				'innodb_flush_log_at_trx_commit', 'innodb_open_files','interactive_timeout', 'log_bin', 
-				'log_queries_not_using_indexes','log_slave_updates', 'log_warnings', 'long_query_time', 
+				'binlog_format', 'character_set_server', 'collation_server', 'innodb_checksum_algorithm',
+				'innodb_flush_method', 'innodb_file_format','innodb_file_format_max', 'innodb_file_per_table',
+				'innodb_flush_log_at_trx_commit', 'innodb_open_files','interactive_timeout', 'log_bin',
+				'log_queries_not_using_indexes','log_slave_updates', 'log_warnings', 'long_query_time',
 				'max_connect_errors', 'max_connections', 'old_passwords', 'open_files_limit', 'port',
-				'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id', 
-				'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache', 
+				'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id',
+				'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache',
 				'thread_cache_size', 'wait_timeout', 'connect_timeout'
 				);
 
@@ -944,7 +966,7 @@ function pause($message = NULL) {
 			$c = stream_get_contents(STDIN, 1);
 			break;
 		}
-		
+
 		usleep(100000); // Sleep 100 milliseconds so it doesn't max out CPU
 	}
 }
@@ -954,7 +976,7 @@ function execute_query($query, $type) {
 
 	$results = array();
 	$data    = $connection->query($query);
-	
+
 	if ($data === false) {
 		print($ansi_chars['SHOW_CURSOR']);
 		exit("$RED" . "SQL: $RESET$query -$RED Error: $RESET" . $connection->error . "\n");
@@ -965,7 +987,7 @@ function execute_query($query, $type) {
 				$results[$row['Variable_name']] = $row['Value'];
 			}
 		} else if ($type == 2) {
-			while ($row = $data->fetch_assoc()) { 
+			while ($row = $data->fetch_assoc()) {
 				$results[] = $row;
 			}
 			if ($results) $results = call_user_func_array('array_merge', $results); // Flatten out the array
@@ -1070,15 +1092,15 @@ function email_query($id, $thread) {
 	$headers    .= 'MIME-Version: 1.0' . "\r\n";
 	$headers    .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
 
-	$email_body .= 
-		"<tr><td>ID</td><td>" . $id . "</td></tr>" . 
-		"<tr><td>User</td><td>" . $thread['user'] . '@' . $thread['host'] . "</td></tr>" . 
-		"<tr><td>Database</td><td>" . $thread['db'] . "</td></tr>" . 
-		"<tr><td>Command</td><td>" . $thread['command'] . "</td></tr>" . 
-		"<tr><td>State</td><td>" . $thread['state'] . "</td></tr>" . 
-		"<tr><td>Time</td><td>" . $thread['formatted_time'] . "</td></tr>" . 
+	$email_body .=
+		"<tr><td>ID</td><td>" . $id . "</td></tr>" .
+		"<tr><td>User</td><td>" . $thread['user'] . '@' . $thread['host'] . "</td></tr>" .
+		"<tr><td>Database</td><td>" . $thread['db'] . "</td></tr>" .
+		"<tr><td>Command</td><td>" . $thread['command'] . "</td></tr>" .
+		"<tr><td>State</td><td>" . $thread['state'] . "</td></tr>" .
+		"<tr><td>Time</td><td>" . $thread['formatted_time'] . "</td></tr>" .
 		"</table>" .
-		"<span style=\"font-size: 18px; font-weight: bold;\">Query</span>" . 
+		"<span style=\"font-size: 18px; font-weight: bold;\">Query</span>" .
 		"<hr>" .
 		"<span>" . $thread['info'] . "</span>";
 
@@ -1129,6 +1151,7 @@ function helpme($command) {
 		printf("$BOLD%-9s$RESET %s", "     r", "Resolve IPs to hostnames\n");
 		printf("$BOLD%-9s$RESET %s", "     R", "Reset MySQL status counters via FLUSH STATUS\n");
 		printf("$BOLD%-9s$RESET %s", "     s", "Set delay in seconds\n");
+		printf("$BOLD%-9s$RESET %s", "     S", "Execute SET GLOBAL sql_slave_skip_counter = 1 & START SLAVE\n");
 		printf("$BOLD%-9s$RESET %s", "     t", "Filter by minimum time\n");
 		printf("$BOLD%-9s$RESET %s", "     u", "Filter by user\n");
 		printf("$BOLD%-9s$RESET %s", "     v", "Display some important variables\n");
