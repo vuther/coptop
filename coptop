@@ -868,16 +868,14 @@ function read_key($key) {
 			if ($input == 'y') {
 				if ($slave_status['Slave_SQL_Running'] == 'Yes') {
 					print($RED . "SQL slave thread is currently running!$RESET");
-					sleep(1);
 				} else if (!$slave_status['Slave_SQL_Running']) {
 					print($RED . "No slave configured!$RESET");
-					sleep(1);
 				} else {
 					execute_query("SET GLOBAL sql_slave_skip_counter = 1", 0);
 					execute_query("START SLAVE", 0);
 					print($CYAN . "Executed SET GLOBAL sql_slave_skip_counter = 1!$RESET");
-					sleep(1);
 				}
+				sleep(1);
 			}
 
 			$run_command = 1;
@@ -904,13 +902,16 @@ function read_key($key) {
 			$variables    = execute_query($commands['variables'], 1);
 			$special_list = array(
 				'binlog_format', 'character_set_server', 'collation_server', 'innodb_checksum_algorithm',
-				'innodb_flush_method', 'innodb_file_format','innodb_file_format_max', 'innodb_file_per_table',
-				'innodb_flush_log_at_trx_commit', 'innodb_open_files','interactive_timeout', 'log_bin',
-				'log_queries_not_using_indexes','log_slave_updates', 'log_warnings', 'long_query_time',
-				'max_connect_errors', 'max_connections', 'old_passwords', 'open_files_limit', 'port',
-				'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id',
-				'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache',
-				'thread_cache_size', 'wait_timeout', 'connect_timeout'
+                'innodb_flush_method', 'innodb_file_format','innodb_file_format_max', 'innodb_file_per_table',
+                'innodb_flush_log_at_trx_commit', 'innodb_open_files','interactive_timeout', 'log_bin',
+                'log_queries_not_using_indexes','log_slave_updates', 'log_warnings', 'long_query_time',
+                'max_connect_errors', 'max_connections', 'old_passwords', 'open_files_limit', 'port',
+                'query_cache_size', 'query_cache_type', 'read_only', 'secure_auth', 'server_id',
+                'skip_name_resolve', 'slow_query_log','table_definition_cache', 'table_open_cache',
+                'thread_cache_size', 'wait_timeout', 'connect_timeout', 'relay_log_recovery',
+                'relay_log_info_repository', 'master_info_repository', 'binlog_row_image', 'innodb_flush_neighbors',
+                'innodb_read_io_threads', 'innodb_write_io_threads', 'transaction-isolation', 'sync_binlog',
+                'table_open_cache_instances'
 				);
 
 			sort($special_list);
