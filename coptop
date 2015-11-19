@@ -201,7 +201,6 @@ $old_lines        = '';
 $first_clear      = 0;
 $master_binary    = 1;
 $hosts            = array();
-$last_slave_error = '';
 
 //////////////////////////////////
 //          Main Loop           //
@@ -260,7 +259,6 @@ while (1) {
 			if (!$master_status) $master_binary = 0;
 		}
 
-		if ($config['ansi_refresh'] && $last_slave_error != $slave_status['Last_Error']) system('clear');
 		//////////////////////////////////
 		//    Calculations for Header   //
 		//////////////////////////////////
@@ -404,8 +402,6 @@ while (1) {
 			} else {
 				print(sprintf("%-30s", "Slave Error: $RESET$CYAN") . sprintf("%-9s", "None$RESET\n"));
 			}
-
-			$last_slave_error = $slave_status['Last_Error'];
 
 			$lines_left -= 5;
 		}
