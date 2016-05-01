@@ -540,10 +540,10 @@ while (1) {
 	//////////////////////////////////
 
 	// Processlist header
-	$free_screen = $cols - 67; // 67 is the length of our headers
+	$free_screen = $cols - 68; // 67 is the length of our headers
 	$repeat_char = str_repeat("-", $free_screen - 1);
-	print($BOLD . "Identifier   Username   Hostname/IP   Database      Time   Command  Query/State\n" . $RESET);
-	print($CYAN . "----------  ---------  ------------  ---------  --------  --------  $repeat_char\n" . $RESET);
+	print($BOLD . "Identifier    Username   Hostname/IP   Database      Time   Command  Query/State\n" . $RESET);
+	print($CYAN . "-----------  ---------  ------------  ---------  --------  --------  $repeat_char\n" . $RESET);
 	$lines_left -= 2;
 
 	// Loop each thread
@@ -585,7 +585,7 @@ while (1) {
 
 		// Print thread
 		print($color);
-		printf("%10d %10.9s %13.12s %10.9s %9s %9.8s %-$free_screen.$free_screen" . "s",
+		printf("%11d %10.9s %13.12s %10.9s %9s %9.8s %-$free_screen.$free_screen" . "s",
 			$id, $thread['user'], $thread['host'], $thread['db'],
 			$thread['formatted_time'], $thread['command'], " $info");
 		print("$RESET\n");
@@ -858,21 +858,24 @@ function read_key($key) {
 
 			$run_command = 1;
 			break;
-		case 'S': // SET GLOBAL sql_slave_skip_counter = 1
-			$input = read_stdin("Are you sure you want to execute SET GLOBAL sql_slave_skip_counter = 1? (y/n): ");
+		case 'S': // Skip a transaction/start slave or just start the slave
+			$input = read_stdin("Do you want to skip a transaction? (y/n): ");
 
-			if ($input == 'y') {
-				if ($slave_status['Slave_SQL_Running'] == 'Yes') {
-					print($RED . "SQL slave thread is currently running!$RESET");
-				} else if (!$slave_status['Slave_SQL_Running']) {
-					print($RED . "No slave configured!$RESET");
-				} else {
+			if ($slave_status['Slave_SQL_Running'] == 'Yes') {
+				print($RED . "SQL slave thread is currently running!$RESET");
+			} else if (!$slave_status['Slave_SQL_Running']) {
+				print($RED . "No slave configured!$RESET");
+			} else {
+				if ($input == 'y') {
 					execute_query("SET GLOBAL sql_slave_skip_counter = 1", 0);
 					execute_query("START SLAVE", 0);
-					print($CYAN . "Executed SET GLOBAL sql_slave_skip_counter = 1!$RESET");
+                                	print($CYAN . "Skipped transaction & started slave!$RESET");
+				} else {
+					execute_query("START SLAVE", 0);
+					print($CYAN . "Started slave!$RESET");
 				}
-				sleep(1);
 			}
+			sleep(1);
 
 			$run_command = 1;
 			break;
@@ -907,7 +910,7 @@ function read_key($key) {
                 'thread_cache_size', 'wait_timeout', 'connect_timeout', 'relay_log_recovery',
                 'relay_log_info_repository', 'master_info_repository', 'binlog_row_image', 'innodb_flush_neighbors',
                 'innodb_read_io_threads', 'innodb_write_io_threads', 'transaction-isolation', 'sync_binlog',
-                'table_open_cache_instances'
+                'table_open_cache_instances', 'innodb_thread_concurrency'
 				);
 
 			sort($special_list);
