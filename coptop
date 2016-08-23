@@ -25,8 +25,6 @@ $config  = array(
 	'db_filter'      => '',
 	'host_filter'    => '',
 	'time_filter'    => 0,
-	'notify_email'   => '',
-	'notify_limit'   => 30
 );
 
 // MySQL commands used
@@ -141,8 +139,6 @@ if (isset($opts['idle']))    $config['show_idle']    = $opts['idle'];
 if (isset($opts['sort']))    $config['reverse_sort'] = $opts['sort'];
 if (isset($opts['resolve'])) $config['resolve_ip']   = $opts['resolve'];
 if (isset($opts['ansi']))    $config['ansi_refresh'] = $opts['ansi'];
-if (isset($opts['notify']))  $config['notify_email'] = $opts['notify'];
-if (isset($opts['limit']))   $config['notify_limit'] = $opts['limit'];
 
 // Get password to server privately
 if (isset($opts['prompt'])) {
@@ -407,7 +403,10 @@ while (1) {
 		}
 
 		if ($master_status) {
-			print("\nMaster Binary Log: $CYAN" . $master_status['File'] . "$RESET (position: $CYAN" . $master_status['Position'] . "$RESET)$pad_space\n");
+			$diff_binlog_pos = $master_status['Position'] - $old_binlog_pos;
+
+			print("\nMaster Binary Log: $CYAN" . $master_status['File'] . "$RESET (position: $CYAN" . $master_status['Position'] . "$RESET - log diff size: $CYAN" . formatBytes($diff_binlog_pos) . "$RESET)$pad_space\n");
+			$old_binlog_pos = $master_status['Position'];
 			$lines_left -= 2;
 
 			if ($servers_slaved) {
@@ -500,16 +499,6 @@ while (1) {
 			"state"    => $thread['State'],   "formatted_time" => $formatted_time, "seconds" => $seconds,
 			"raw_info" => $raw_info
 		);
-
-		// Save and notify of slow queries
-		if ($thread['Command'] == 'Query' && $config['notify_email'] && $seconds >= $config['notify_limit']
-			&& $thread['User'] != 'backup'
-			&& $seconds < 99999999) {
-			if (!in_array($id, $slow_queries)) {
-				$slow_queries[] = $id;
-				email_query($id, $thread_data[$id]);
-			}
-		}
 	}
 
 	// Remove slow queries from array that are no longer running
@@ -690,7 +679,10 @@ function read_key($key) {
 					$connection->query("USE " . $thread_data[$input]['db']);
 					$results = execute_query("EXPLAIN " . $thread_data[$input]['raw_info'], 3);
 
-					print("EXPLAIN " .  $thread_data[$input]['raw_info'] . "\n\n");
+					if ($results) {
+						print("EXPLAIN " .  $thread_data[$input]['raw_info'] . "\n\n");
+					}
+
 					foreach ($results as $thread) {
 						print "$BOLD_CYAN****************** row $counter ******************$RESET\n";
 						foreach ($thread as $key => $value) {
@@ -795,17 +787,6 @@ function read_key($key) {
 				}
 			} else {
 				print_error('Invalid input!', 1);
-			}
-
-			$run_command = 1;
-			break;
-		case 'l': // Set notify limit for slow queries
-			$input = read_stdin("Notify limit in seconds for slow queries: ");
-
-			if (is_numeric($input)) {
-				$config['notify_limit'] = $input;
-			} else {
-				print_error('Input must be numeric!', 1);
 			}
 
 			$run_command = 1;
@@ -956,7 +937,7 @@ function read_stdin($prompt) {
 function pause($message = NULL) {
 	global $CYAN, $RESET;
 
-	if ($message == NULL) $message = $CYAN. "\nPaused! Press any key to resume.$RESET";
+	if ($message == NULL) $message = $CYAN . "\nPaused! Press any key to resume.$RESET";
 	print($message);
 
 	readline_callback_handler_install('', function() { });
@@ -982,7 +963,7 @@ function execute_query($query, $type) {
 
 	if ($data === false) {
 		print($ansi_chars['SHOW_CURSOR']);
-		exit("$RED" . "SQL: $RESET$query -$RED Error: $RESET" . $connection->error . "\n");
+		print("$RED" . "SQL: $RESET$query -$RED Error: $RESET" . $connection->error . "\n");
 	} else {
 		if ($type) $data->data_seek(0);
 		if ($type == 1) {
@@ -1004,110 +985,18 @@ function execute_query($query, $type) {
 	return $results;
 }
 
+function formatBytes($size, $precision = 2) {
+    $base = log($size, 1024);
+    $suffixes = array('', 'K', 'M', 'G', 'T');   
+
+    return round(pow(1024, $base - floor($base)), $precision) . $suffixes[floor($base)];
+}
+
 function print_error($message, $sleep) {
 	global $RED, $RESET;
 
 	print("$RED$message$RESET");
 	sleep($sleep);
-}
-
-function email_query($id, $thread) {
-	global $config;
-
-	$email_body = "<head><style>
-	span {
-		font-family: serif;
-		font-size: 16px;
-	}
-	hr {
-		margin-top: 1px;
-		border: none;
-		height: 1px;
-		color: #D2D2D2; /* old IE */
-		background-color: #D2D2D2; /* Modern Browsers */
-	}
-	table {
-		border-spacing: 0;
-		border-collapse: collapse;
-	}
-	td,
-	th {
-		padding: 0;
-	}
-	table {
-		background-color: transparent;
-	}
-	th {
-		text-align: left;
-		background-color: #f2f2f2;
-	}
-	.table {
-		width: 45%;
-		max-width: 45%;
-		margin-bottom: 10px;
-	}
-	.table-curved {
-		border-collapse: separate;
-	}
-	.table-curved {
-		border: solid #ccc 1px;
-		border-radius: 6px;
-		border-left:0px;
-	}
-	.table-curved td, .table-curved th {
-		border-left: 1px solid #ccc;
-		border-top: 1px solid #ccc;
-	}
-	.table-curved th {
-		border-top: none;
-	}
-	.table-curved th:first-child {
-		border-radius: 6px 0 0 0;
-	}
-	.table-curved th:last-child {
-		border-radius: 0 6px 0 0;
-	}
-	.table-curved th:only-child{
-		border-radius: 6px 6px 0 0;
-	}
-	.table-curved tr:last-child td:first-child {
-		border-radius: 0 0 0 3px;
-	}
-	.table-curved tr:last-child td:last-child {
-		border-radius: 0 0 3px 0;
-	}
-	.table > thead > tr > th,
-	.table > tbody > tr > th,
-	.table > tfoot > tr > th,
-	.table > thead > tr > td,
-	.table > tbody > tr > td,
-	.table > tfoot > tr > td {
-		padding: 5px;
-		line-height: 1.42857143;
-		vertical-align: top;
-	}
-	</style></head><body>
-	<table class=\"table table-curved\">
-	<tr><th>Thread Information</th><th>Value</th></tr>";
-
-	$subject     = "coptop: " . $config['server'] . " slow query";
-	$headers     = 'From: coptop <coptop@dangerzone.com>' . "\r\n";
-	$headers    .= 'MIME-Version: 1.0' . "\r\n";
-	$headers    .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
-
-	$email_body .=
-		"<tr><td>ID</td><td>" . $id . "</td></tr>" .
-		"<tr><td>User</td><td>" . $thread['user'] . '@' . $thread['host'] . "</td></tr>" .
-		"<tr><td>Database</td><td>" . $thread['db'] . "</td></tr>" .
-		"<tr><td>Command</td><td>" . $thread['command'] . "</td></tr>" .
-		"<tr><td>State</td><td>" . $thread['state'] . "</td></tr>" .
-		"<tr><td>Time</td><td>" . $thread['formatted_time'] . "</td></tr>" .
-		"</table>" .
-		"<span style=\"font-size: 18px; font-weight: bold;\">Query</span>" .
-		"<hr>" .
-		"<span>" . $thread['info'] . "</span>";
-
-	mail($config['notify_email'], $subject, $email_body, $headers);
 }
 
 function helpme($command) {
@@ -1124,8 +1013,6 @@ function helpme($command) {
 
 		print("\n\t$UNDERLINE" . "Options$RESET\n");
 		print($CYAN . "\t--delay   \$time  $RESET(default: 1)    - Refresh delay in seconds\n");
-		print($CYAN . "\t--notify  \$email $RESET(default: off)  - Send email when slow query hits --limit value\n");
-		print($CYAN . "\t--limit   \$time  $RESET(default: 30)   - Notify limit in seconds\n");
 		print($CYAN . "\t--ansi    0/1    $RESET(default: off)  - Ansi escape character method for smoother refresh that reduces flickering\n");
 		print($CYAN . "\t--header  0/1    $RESET(default: on)   - Show header\n");
 		print($CYAN . "\t--idle    0/1    $RESET(default: off)  - Show idle threads\n");
@@ -1147,7 +1034,6 @@ function helpme($command) {
 		printf("$BOLD%-9s$RESET %s", "     i", "Hide/show idle threads\n");
 		printf("$BOLD%-9s$RESET %s", "     k", "Kill thread by ID\n");
 		printf("$BOLD%-9s$RESET %s", "     K", "Kill threads by username, hostname, or time range\n");
-		printf("$BOLD%-9s$RESET %s", "     l", "Set notify limit for slow queries\n");
 		printf("$BOLD%-9s$RESET %s", "     o", "Reverse sort order\n");
 		printf("$BOLD%-9s$RESET %s", "     p", "Pause screen\n");
 		printf("$BOLD%-9s$RESET %s", "     q", "Quit\n");
