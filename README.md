@@ -7,8 +7,8 @@ I've been using mytop for a few years now and recently wanted to build my own mo
 ![ScreenShot](http://i.imgur.com/BT8t43S.png)
 
 <h3>Requirements</h3>
-* This was built using PHP 5.5. I'm unaware of any incompabilities with other versions
-* MySQLi
+- This was built using PHP 5.5. I'm unaware of any incompabilities with other versions
+- MySQLi
 * Readline must be compiled with your PHP version
 * MySQL privileges to fully utilize coptop:
   - KILL
