@@ -1,14 +1,13 @@
 # coptop
-<h3>Summary</h3>
 coptop is a linux terminal-based PHP tool for monitoring and administrating a MySQL/MariaDB/Percona 5.0+ server. With this tool, DBAs can take full control of queries running on their database servers. Lay down the law!
 
 I've been using mytop for a few years now and recently wanted to build my own monitoring tool because it didn't have all of the features I wanted. coptop was built with mytop in mind so thanks to Jeremy Zawodny for his work!
 
 ![ScreenShot](http://i.imgur.com/BT8t43S.png)
 
-<h3>Requirements</h3>
-- This was built using PHP 5.5. I'm unaware of any incompabilities with other versions
-- MySQLi
+## Requirements
+* This was built using PHP 5.5. I'm unaware of any incompabilities with other versions
+* MySQLi
 * Readline must be compiled with your PHP version
 * MySQL privileges to fully utilize coptop:
   - KILL
@@ -20,7 +19,7 @@ I've been using mytop for a few years now and recently wanted to build my own mo
   - SHOW MASTER STATUS;
   - SHOW SLAVE STATUS;
   
-<h3>Features</h3>
+## Features
 * Color coded threads that are based on time:
   - Green: Less than 1s
   - Yellow: 1-2s
@@ -29,7 +28,7 @@ I've been using mytop for a few years now and recently wanted to build my own mo
 * Threads taking less than 1 second are in milliseconds
 * Other nice stats to see at a glance
 
-<h3>Command line parameters</h3>
+## Command line parameters
 ```
 Login
     -u        $user  (Will check my.cnf client section for username field)
@@ -48,7 +47,7 @@ Options
     --sort    0/1    (default: on)   - Reverse sort
     --prompt         (prompts for password; text is invisible)
 ```
-<h3>Commands</h3>
+## Commands
 ```
 Command Description
    ?    Help section
@@ -72,11 +71,10 @@ Command Description
    u    Filter by user
    v    Display some important variables
 ```
-<h3>Want to contribute?</h3>
+## Want to contribute?
 If you'd like to contribute, feel free to submit a merge request or get in contact with me. I'm open to all suggestions!
 
 Current issues I'm tackling:
 * Want to get rid of the readline dependency. It has to be installed w/ PHP from what I read so that's an issue for non-power users.
 
 If you know how to fix any of these issues, please let me know! :-)
-
